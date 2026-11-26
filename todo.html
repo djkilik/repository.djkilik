@@ -341,6 +341,21 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
 .span-bar.is-end { margin-right: 4px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
 .cal-chip.is-range { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
 .cal-chip.is-range.has-cat { box-shadow: inset 3px 0 0 var(--cat), inset 0 0 0 1px var(--line); }
+
+/* 휴가 (알림 쉬는 날) */
+.cal-day.is-vac { background-image: repeating-linear-gradient(135deg, transparent 0 6px, var(--sunk) 6px 8px); }
+.cal-vac { display: none; font-size: 11px; line-height: 1.3; font-weight: 500; color: var(--muted); padding-left: 2px; }
+@media (min-width: 700px) { .cal-vac { display: block; } }
+.vac-pill { display: inline-flex; align-items: center; margin-top: 6px; margin-right: 6px; font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 999px; background: var(--sunk); color: var(--ink); }
+.vac-card { margin-top: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; }
+.vac-card .label { margin: 0; }
+.vac-card .cal-note { margin: 0; }
+.vac-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.vac-row:first-child { border-top: 0; }
+.vac-when { margin: 0; font-size: 14px; min-width: 0; }
+.vac-row .ghost { flex: none; white-space: nowrap; }
+.vac-msg { margin: 0; font-size: 13px; color: var(--muted); }
+.vac-msg:empty { display: none; }
 .day-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; min-width: 0; align-content: start; }
 @media (min-width: 900px) { .day-panel { position: sticky; top: calc(76px + env(safe-area-inset-top, 0px)); } }
 .day-title { margin: 0; font-size: 18px; font-weight: 700; }
@@ -530,6 +545,18 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         <p class="cal-hols" id="cal-hols"></p>
         <p class="cal-note">시행일이 정해진 일만 달력에 보여요. 날짜를 누르면 그날 할 일이 나와요. 방향키로도 날짜를 옮길 수 있어요.</p>
         <p class="cal-note">빨간 날(공휴일)은 한국천문연구원 달력자료(2026·2027년 월력요항)를 따랐어요. 2026년 노동절과 제헌절은 그해 새로 공휴일이 되어 따로 넣었고, 정부가 나중에 정하는 임시공휴일은 들어 있지 않아요.</p>
+        <section class="vac-card" aria-labelledby="vac-h">
+          <h3 class="label" id="vac-h">휴가 · 알림 쉬는 날</h3>
+          <p class="cal-note">휴가로 정한 날에는 아침·저녁 푸시를 보내지 않아요. 주말과 공휴일은 따로 정하지 않아도 알림이 쉬어요.</p>
+          <form class="range-row" id="vac-form" novalidate>
+            <label class="date-chip is-on" for="vac-start">시작 <input type="date" id="vac-start" name="vac-start"></label>
+            <span class="range-sep" aria-hidden="true">~</span>
+            <label class="date-chip is-on" for="vac-end">끝 <input type="date" id="vac-end" name="vac-end"></label>
+            <button type="submit" class="primary small" id="vac-add">휴가 추가</button>
+          </form>
+          <p class="vac-msg" id="vac-msg" role="status"></p>
+          <ul class="mini-list" id="vac-list"></ul>
+        </section>
       </div>
       <section class="day-panel" id="day-panel" aria-live="polite" aria-label="고른 날의 할 일"></section>
     </div>
@@ -654,6 +681,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   const LS_VIEW = 'todo-compass.view';
   const LS_COLLAPSED = 'todo-compass.collapsed';
   const LS_CAT = 'todo-compass.category-filter';
+  const LS_OFF = 'todo-compass.offdays';
   const NONE_CAT = '__none__';
   const WD = ['일', '월', '화', '수', '목', '금', '토'];
   const PRI = { 1: '높음', 2: '보통', 3: '낮음' };
@@ -677,11 +705,13 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     calMonth: '', calSel: '', presetDue: null,
     cat: '', catDraft: '',
     dateMode: 'day', rStart: null, rEnd: null,
+    offdays: [],
   };
   let IX = emptyIndex();
   let store = null;
   let rawById = new Map();
   let pendingDelete = null;
+  let pendingOff = null;
   let parentSig = null;
   let composing = false;
   let pendingRender = false;
@@ -956,6 +986,19 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     };
   }
   const newId = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  /* ---------- 휴가 (알림 쉬는 날) ----------
+     data/users/<내 ID>/prefs/offdays/<id> 에 { start, end } 로 저장해요. 아침·저녁 알림이 이 기간을 건너뜁니다. */
+  function normOff(id, d) {
+    const start = validISO(d.start);
+    if (!start) return null;
+    let end = validISO(d.end) || start;
+    if (end < start) end = start;
+    return { id: String(id), start, end };
+  }
+  const vacationOf = (day) => state.offdays.find((v) => v.start <= day && day <= v.end) || null;
+  const offText = (v) => (v.start === v.end ? fmtDate(v.start) : `${fmtRange(v.start, v.end)} · ${spanDays(v.start, v.end)}일`);
+  const newOffId = () => 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   function setTasks(list) { state.tasks = list; IX = buildIndex(list); }
   function upsert(t) {
     const copy = state.tasks.slice();
@@ -1038,7 +1081,27 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         const r = raw.find((x) => String(x.id) === id);
         return r ? JSON.parse(JSON.stringify(r)) : null;
       },
+      async offAdd(v) { offRaw.push({ ...v }); persistOff(); },
+      async offRemove(id) {
+        const i = offRaw.findIndex((x) => String(x.id) === id);
+        if (i >= 0) offRaw.splice(i, 1);
+        persistOff();
+      },
     };
+    let offRaw = [];
+    let offText0 = null;
+    try { offText0 = localStorage.getItem(LS_OFF); } catch (_) {}
+    if (offText0) {
+      let parsed = null;
+      try { parsed = JSON.parse(offText0); } catch (_) {}
+      if (Array.isArray(parsed)) offRaw = parsed.filter((x) => x && typeof x === 'object' && x.id != null);
+      else { try { localStorage.setItem(`${LS_OFF}.broken-${Date.now()}`, offText0); } catch (_) {} }
+    }
+    const persistOff = () => {
+      try { localStorage.setItem(LS_OFF, JSON.stringify(offRaw)); }
+      catch (_) { throw { code: 'local_failed' }; }
+    };
+    state.offdays = offRaw.map((x) => normOff(x.id, x)).filter(Boolean);
     setTasks(raw.map((x) => normalize(x.id, x)));
     state.ready = true;
     setNote(note);
@@ -1062,7 +1125,10 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       return;
     }
     const col = db.collection('data/users/' + uid);
+    const offCol = db.doc('data/users/' + uid + '/prefs').collection('offdays');
     store = {
+      offAdd: (v) => retryOnce(() => offCol.doc(v.id).set(v)),
+      offRemove: (id) => retryOnce(() => offCol.doc(id).delete()),
       create: (t) => retryOnce(() => col.doc(t.id).set(t)),
       patch: (id, fields) => retryOnce(() => col.doc(id).update(fields)),
       remove: (id) => retryOnce(() => col.doc(id).delete()),
@@ -1082,6 +1148,10 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       setNote('저장소 연결이 끊겼어요. 페이지를 새로고침하면 다시 연결돼요.');
       requestRender();
     });
+    offCol.onSnapshot((snap) => {
+      state.offdays = snap.docs.map((d) => normOff(d.id, d.data() || {})).filter(Boolean);
+      requestRender();
+    }, () => {});
   }
 
   /* ---------- 동작 ---------- */
@@ -1133,7 +1203,9 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   function askDelete(t) {
     const cur = IX.byId.get(t.id) || t;
     const sub = descendants(cur);
+    pendingOff = null;
     pendingDelete = cur.id;
+    $('#confirm-h').textContent = '정말 삭제할까요?';
     $('#confirm-body').replaceChildren(
       el('b', { text: `'${cur.title}'` }),
       sub.length ? ` 항목과 그 아래 세부 할 일 ${sub.length}개가 함께 삭제돼요.` : ' 항목이 삭제돼요.');
@@ -1144,8 +1216,45 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     else cdlg.setAttribute('open', '');
     setTimeout(() => $('#confirm-no').focus(), 0);
   }
+  /* 휴가 지우기도 한 번 더 물어본 뒤에 */
+  function askRemoveOff(v) {
+    pendingDelete = null;
+    pendingOff = v.id;
+    $('#confirm-h').textContent = '휴가를 지울까요?';
+    $('#confirm-body').replaceChildren(el('b', { text: offText(v) }), ' 휴가가 지워져요.');
+    $('#confirm-note').textContent = "지우면 그 기간에도 아침·저녁 알림이 다시 와요. 지운 직후 알림의 '되돌리기'로 복구할 수 있어요.";
+    $('#confirm-alt').hidden = true;
+    if (typeof cdlg.showModal === 'function') { if (!cdlg.open) cdlg.showModal(); }
+    else cdlg.setAttribute('open', '');
+    setTimeout(() => $('#confirm-no').focus(), 0);
+  }
+  function addOff(start, end) {
+    if (!store) return;
+    const v = normOff(newOffId(), { start, end });
+    if (!v) return;
+    state.offdays = [...state.offdays, v];
+    requestRender();
+    queue(v.id, () => store.offAdd({ ...v, created: new Date().toISOString() }));
+  }
+  function removeOff(id) {
+    const v = state.offdays.find((x) => x.id === id);
+    if (!v || !store) return;
+    state.offdays = state.offdays.filter((x) => x.id !== id);
+    requestRender();
+    queue(id, () => store.offRemove(id));
+    toast(`휴가(${offText(v)})를 지웠어요.`, {
+      label: '되돌리기',
+      run: () => {
+        if (state.offdays.some((x) => x.id === v.id)) return;
+        state.offdays = [...state.offdays, v];
+        requestRender();
+        queue(v.id, () => store.offAdd({ ...v, created: new Date().toISOString() }));
+      },
+    }, 10000);
+  }
   function closeConfirm() {
     pendingDelete = null;
+    pendingOff = null;
     if (typeof cdlg.close === 'function') { if (cdlg.open) cdlg.close(); }
     else cdlg.removeAttribute('open');
   }
@@ -1393,7 +1502,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   function renderSummary(act) {
     const now = new Date();
     const catNote = !state.cat ? '' : state.cat === NONE_CAT ? ' · 카테고리 없는 일만 보는 중' : ` · '${state.cat}'만 보는 중`;
-    $('#today-label').textContent = `${now.getMonth() + 1}월 ${now.getDate()}일 ${WD[now.getDay()]}요일${catNote}`;
+    const vacNote = vacationOf(state.day) ? ' · 휴가 중 (알림 쉼)' : '';
+    $('#today-label').textContent = `${now.getMonth() + 1}월 ${now.getDate()}일 ${WD[now.getDay()]}요일${vacNote}${catNote}`;
     const c = { over: 0, today: 0, tomorrow: 0, week: 0, later: 0, none: 0 };
     act.forEach((t) => { c[bucketOf(t)] += 1; });
     const in7 = c.today + c.tomorrow + c.week;
@@ -1808,6 +1918,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       if (wd === 6) cls.push('is-sat');
       const hol = holidayOf(key);
       if (hol) cls.push('is-hol');
+      const vac = vacationOf(key);
+      if (vac) cls.push('is-vac');
       const lanes = lanesOf.get(key) || [];
       const spans = lanes.length ? el('span', { class: 'cal-spans', 'aria-hidden': 'true' },
         ...lanes.map((g) => (g
@@ -1828,14 +1940,17 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         singles.slice(0, 4).forEach((t) => dots.append(el('span', { class: 'dot' + chipTone(t) })));
         if (singles.length > 4) dots.append(el('span', { class: 'cal-more-n', text: `+${singles.length - 4}` }));
       }
-      let label = `${fmtDayLong(key)}${hol ? ` ${hol}` : ''}, 할 일 ${openN}개`;
+      let label = `${fmtDayLong(key)}${hol ? ` ${hol}` : ''}${vac ? ' 휴가' : ''}, 할 일 ${openN}개`;
       if (doneN) label += `, 끝낸 일 ${doneN}개`;
       grid.append(el('button', {
         type: 'button', class: cls.join(' '), id: `cal-${key}`, 'data-day': key,
         'aria-pressed': String(key === state.calSel), 'aria-label': label,
         onclick: () => selectDay(key, false),
-      }, el('span', { class: 'cal-num', text: String(d.getDate()) }), spans, hol ? el('span', { class: 'cal-hol', text: hol }) : null, chips, dots));
+      }, el('span', { class: 'cal-num', text: String(d.getDate()) }), spans,
+        hol ? el('span', { class: 'cal-hol', text: hol }) : null,
+        vac ? el('span', { class: 'cal-vac', text: '휴가' }) : null, chips, dots));
     }
+    renderVacations();
     const hols = Object.keys(HOLIDAYS).filter((k) => k.startsWith(monthKey)).sort();
     const holBox = $('#cal-hols');
     if (!HOLIDAY_YEARS.includes(y)) holBox.textContent = `${y}년 공휴일 정보는 아직 넣지 않았어요.`;
@@ -1846,6 +1961,23 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         hols.map((k) => `${Number(k.slice(8))}일(${WD[parseISO(k).getDay()]}) ${HOLIDAYS[k]}`).join(' · '));
     }
     renderDayPanel(byDay, ranges);
+  }
+  /* 앞으로 있을(또는 지금 진행 중인) 휴가 목록 */
+  function renderVacations() {
+    const list = $('#vac-list');
+    const today = todayISO();
+    const items = state.offdays.filter((v) => v.end >= today).sort((a, b) => a.start.localeCompare(b.start));
+    if (!state.ready) { list.replaceChildren(); return; }
+    if (!items.length) {
+      list.replaceChildren(el('li', { class: 'vac-row' }, el('p', { class: 'vac-when day-empty', text: '정해 둔 휴가가 없어요.' })));
+      return;
+    }
+    list.replaceChildren(...items.map((v) => el('li', { class: 'vac-row' },
+      el('p', { class: 'vac-when', text: (v.start <= today ? '지금 휴가 중 · ' : '') + offText(v) }),
+      el('button', {
+        type: 'button', class: 'ghost small danger-text', id: `vdel-${v.id}`, text: '지우기',
+        'aria-label': `${offText(v)} 휴가 지우기`, onclick: () => askRemoveOff(v),
+      }))));
   }
   function dayItem(t, inherited, day) {
     const open = isOpen(t);
@@ -1882,6 +2014,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const ownDone = own.length + spanning.length - ownOpen;
     box.append(el('div', null,
       el('h3', { class: 'day-title', text: fmtDayLong(day) }),
+      vacationOf(day) ? el('span', { class: 'vac-pill', text: '휴가 · 알림 쉼' }) : null,
       holidayOf(day) ? el('span', { class: 'hol-pill', text: `공휴일 · ${holidayOf(day)}` }) : null,
       el('p', {
         class: 'day-sub',
@@ -2339,8 +2472,10 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   /* 삭제 확인 창 */
   $('#confirm-yes').addEventListener('click', () => {
     const id = pendingDelete;
+    const off = pendingOff;
     closeConfirm();
-    if (id) doDelete(id);
+    if (off) removeOff(off);
+    else if (id) doDelete(id);
   });
   $('#confirm-alt').addEventListener('click', () => {
     const id = pendingDelete;
@@ -2350,7 +2485,22 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   });
   $('#confirm-no').addEventListener('click', closeConfirm);
   cdlg.addEventListener('click', (e) => { if (e.target === cdlg) closeConfirm(); });
-  cdlg.addEventListener('close', () => { pendingDelete = null; });
+  cdlg.addEventListener('close', () => { pendingDelete = null; pendingOff = null; });
+  /* 휴가 추가 */
+  $('#vac-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const msg = $('#vac-msg');
+    const start = validISO($('#vac-start').value);
+    const end = validISO($('#vac-end').value) || start;
+    if (!start) { msg.textContent = '휴가 시작일을 골라 주세요.'; return; }
+    if (end < start) { msg.textContent = '끝나는 날이 시작일보다 빨라요. 날짜를 다시 골라 주세요.'; return; }
+    if (!store) { msg.textContent = '아직 저장소를 불러오는 중이에요. 잠시 후 다시 눌러 주세요.'; return; }
+    addOff(start, end);
+    msg.textContent = `휴가를 추가했어요. ${start === end ? fmtDate(start) : fmtRange(start, end)}에는 알림이 쉬어요.`;
+    $('#vac-start').value = '';
+    $('#vac-end').value = '';
+  });
+  $('#vac-start').addEventListener('change', (e) => { $('#vac-end').min = e.target.value || ''; });
   $('#add-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const input = $('#title');
