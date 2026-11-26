@@ -167,11 +167,14 @@ def add_task(tasks):
 
 def find_task(tasks, prompt):
     text = input(prompt).strip()
-    if not text.isdigit():
+    try:
+        number = int(text)
+    except ValueError:
+        # '²'처럼 숫자로 보이지만 숫자로 바꿀 수 없는 글자도 여기서 걸러집니다.
         print("번호를 숫자로 적어 주세요.")
         return None
     for t in tasks:
-        if t["id"] == int(text) and not t.get("archived"):
+        if t["id"] == number and not t.get("archived"):
             return t
     print("그 번호의 할 일이 없습니다.")
     return None
