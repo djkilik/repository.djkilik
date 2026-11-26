@@ -307,6 +307,15 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
 .cal-chip.done { background: var(--sunk); color: var(--muted); text-decoration: line-through; }
 .cal-chip-more { display: block; font-size: 11px; color: var(--muted); padding-left: 4px; }
 .cal-note { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+.cal-day.is-hol .cal-num { color: var(--danger); }
+.cal-day.is-hol.is-today .cal-num { color: var(--bg); }
+.cal-hol { display: none; font-size: 11px; line-height: 1.3; font-weight: 500; color: var(--danger); padding-left: 2px; }
+@media (min-width: 700px) { .cal-hol { display: block; } }
+.cal-hols { margin: 10px 0 0; font-size: 13px; line-height: 1.6; color: var(--ink); }
+.cal-hols b { color: var(--danger); font-weight: 700; }
+.hol-pill { display: inline-flex; align-items: center; margin-top: 6px; font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 999px; background: var(--danger-soft); color: var(--danger); }
+.wk-col.is-hol .wk-d { color: var(--danger); }
+.wk-col.is-hol.is-today .wk-d { color: var(--bg); }
 .day-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; min-width: 0; align-content: start; }
 @media (min-width: 900px) { .day-panel { position: sticky; top: calc(76px + env(safe-area-inset-top, 0px)); } }
 .day-title { margin: 0; font-size: 18px; font-weight: 700; }
@@ -493,7 +502,9 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
           </div>
           <div class="cal-grid" id="cal-grid"></div>
         </div>
+        <p class="cal-hols" id="cal-hols"></p>
         <p class="cal-note">시행일이 정해진 일만 달력에 보여요. 날짜를 누르면 그날 할 일이 나와요. 방향키로도 날짜를 옮길 수 있어요.</p>
+        <p class="cal-note">빨간 날(공휴일)은 한국천문연구원 달력자료(2026·2027년 월력요항)를 따랐어요. 2026년 노동절과 제헌절은 그해 새로 공휴일이 되어 따로 넣었고, 정부가 나중에 정하는 임시공휴일은 들어 있지 않아요.</p>
       </div>
       <section class="day-panel" id="day-panel" aria-live="polite" aria-label="고른 날의 할 일"></section>
     </div>
@@ -1386,8 +1397,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       const wd = x.d.getDay();
       chart.append(el('button', {
         type: 'button', id: `wk-${x.iso}`,
-        class: 'wk-col' + (i === 0 ? ' is-today' : '') + (wd === 6 ? ' is-sat' : '') + (wd === 0 ? ' is-sun' : ''),
-        'aria-label': `${x.d.getMonth() + 1}월 ${x.d.getDate()}일 ${WD[wd]}요일, 할 일 ${x.n}개. 달력에서 보기`,
+        class: 'wk-col' + (i === 0 ? ' is-today' : '') + (wd === 6 ? ' is-sat' : '') + (wd === 0 ? ' is-sun' : '') + (holidayOf(x.iso) ? ' is-hol' : ''),
+        'aria-label': `${x.d.getMonth() + 1}월 ${x.d.getDate()}일 ${WD[wd]}요일${holidayOf(x.iso) ? ` (${holidayOf(x.iso)})` : ''}, 할 일 ${x.n}개. 달력에서 보기`,
         onclick: () => goToDay(x.iso),
       },
         el('span', { class: 'wk-n' + (x.n ? '' : ' is-zero'), text: state.ready ? String(x.n) : '–' }),
@@ -1398,11 +1409,13 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     body.append(chart);
     const total = days.reduce((s, x) => s + x.n, 0);
     const busiest = days.reduce((a, b) => (b.n > a.n ? b : a), days[0]);
+    const weekHols = days.filter((x) => holidayOf(x.iso)).map((x) => `${fmtDate(x.iso)} ${holidayOf(x.iso)}`);
     body.append(el('p', {
       class: 'wk-total',
-      text: !state.ready ? '불러오는 중이에요…'
+      text: (!state.ready ? '불러오는 중이에요…'
         : total ? `7일 동안 할 일 ${total}개 · 가장 많은 날은 ${fmtDate(busiest.iso)} ${busiest.n}개`
-        : '앞으로 7일 안에 시행일이 잡힌 일이 없어요.',
+        : '앞으로 7일 안에 시행일이 잡힌 일이 없어요.')
+        + (weekHols.length ? ` · 공휴일: ${weekHols.join(', ')}` : ''),
     }));
   }
 
@@ -1517,6 +1530,42 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     }
   }
 
+  /* ----- 공휴일 -----
+     출처: 한국천문연구원 달력자료(astro.kasi.re.kr) 2026·2027년 월력요항.
+     2026년 노동절(5/1)·제헌절(7/17)은 2026년에 공휴일로 새로 지정되어 월력요항 발표 뒤에 더했어요
+     (2027년 월력요항 보도자료: "노동절과 제헌절은 올해부터 관공서 공휴일로 새로 지정"). */
+  const HOLIDAY_YEARS = [2026, 2027];
+  const HOLIDAYS = {
+    '2026-01-01': '신정',
+    '2026-02-16': '설날 연휴', '2026-02-17': '설날', '2026-02-18': '설날 연휴',
+    '2026-03-01': '3·1절', '2026-03-02': '대체공휴일(3·1절)',
+    '2026-05-01': '노동절',
+    '2026-05-05': '어린이날',
+    '2026-05-24': '부처님오신날', '2026-05-25': '대체공휴일(부처님오신날)',
+    '2026-06-03': '전국동시지방선거',
+    '2026-06-06': '현충일',
+    '2026-07-17': '제헌절',
+    '2026-08-15': '광복절', '2026-08-17': '대체공휴일(광복절)',
+    '2026-09-24': '추석 연휴', '2026-09-25': '추석', '2026-09-26': '추석 연휴',
+    '2026-10-03': '개천절', '2026-10-05': '대체공휴일(개천절)',
+    '2026-10-09': '한글날',
+    '2026-12-25': '기독탄신일',
+    '2027-01-01': '신정',
+    '2027-02-06': '설날 연휴', '2027-02-07': '설날', '2027-02-08': '설날 연휴', '2027-02-09': '대체공휴일(설날)',
+    '2027-03-01': '3·1절',
+    '2027-05-01': '노동절', '2027-05-03': '대체공휴일(노동절)',
+    '2027-05-05': '어린이날',
+    '2027-05-13': '부처님오신날',
+    '2027-06-06': '현충일',
+    '2027-07-17': '제헌절', '2027-07-19': '대체공휴일(제헌절)',
+    '2027-08-15': '광복절', '2027-08-16': '대체공휴일(광복절)',
+    '2027-09-14': '추석 연휴', '2027-09-15': '추석', '2027-09-16': '추석 연휴',
+    '2027-10-03': '개천절', '2027-10-04': '대체공휴일(개천절)',
+    '2027-10-09': '한글날', '2027-10-11': '대체공휴일(한글날)',
+    '2027-12-25': '기독탄신일', '2027-12-27': '대체공휴일(기독탄신일)',
+  };
+  const holidayOf = (day) => HOLIDAYS[day] || null;
+
   /* ----- 달력 ----- */
   const pad2 = (n) => String(n).padStart(2, '0');
   function fmtDayLong(s) { const d = parseISO(s); return `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일`; }
@@ -1595,6 +1644,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       if (key === state.calSel) cls.push('is-sel');
       if (wd === 0) cls.push('is-sun');
       if (wd === 6) cls.push('is-sat');
+      const hol = holidayOf(key);
+      if (hol) cls.push('is-hol');
       let chips = null, dots = null;
       if (list.length) {
         chips = el('span', { class: 'cal-chips' });
@@ -1604,13 +1655,22 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         list.slice(0, 4).forEach((t) => dots.append(el('span', { class: 'dot' + chipTone(t) })));
         if (list.length > 4) dots.append(el('span', { class: 'cal-more-n', text: `+${list.length - 4}` }));
       }
-      let label = `${fmtDayLong(key)}, 할 일 ${openN}개`;
+      let label = `${fmtDayLong(key)}${hol ? ` ${hol}` : ''}, 할 일 ${openN}개`;
       if (doneN) label += `, 끝낸 일 ${doneN}개`;
       grid.append(el('button', {
         type: 'button', class: cls.join(' '), id: `cal-${key}`, 'data-day': key,
         'aria-pressed': String(key === state.calSel), 'aria-label': label,
         onclick: () => selectDay(key, false),
-      }, el('span', { class: 'cal-num', text: String(d.getDate()) }), chips, dots));
+      }, el('span', { class: 'cal-num', text: String(d.getDate()) }), hol ? el('span', { class: 'cal-hol', text: hol }) : null, chips, dots));
+    }
+    const hols = Object.keys(HOLIDAYS).filter((k) => k.startsWith(monthKey)).sort();
+    const holBox = $('#cal-hols');
+    if (!HOLIDAY_YEARS.includes(y)) holBox.textContent = `${y}년 공휴일 정보는 아직 넣지 않았어요.`;
+    else if (!hols.length) holBox.textContent = `${m}월에는 공휴일이 없어요.`;
+    else {
+      holBox.replaceChildren(
+        el('b', { text: `${m}월 공휴일 ` }),
+        hols.map((k) => `${Number(k.slice(8))}일(${WD[parseISO(k).getDay()]}) ${HOLIDAYS[k]}`).join(' · '));
     }
     renderDayPanel(byDay);
   }
@@ -1642,6 +1702,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const ownDone = own.length - ownOpen;
     box.append(el('div', null,
       el('h3', { class: 'day-title', text: fmtDayLong(day) }),
+      holidayOf(day) ? el('span', { class: 'hol-pill', text: `공휴일 · ${holidayOf(day)}` }) : null,
       el('p', {
         class: 'day-sub',
         text: !state.ready ? '불러오는 중이에요…'
