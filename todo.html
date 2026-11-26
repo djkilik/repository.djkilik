@@ -316,6 +316,31 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
 .hol-pill { display: inline-flex; align-items: center; margin-top: 6px; font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 999px; background: var(--danger-soft); color: var(--danger); }
 .wk-col.is-hol .wk-d { color: var(--danger); }
 .wk-col.is-hol.is-today .wk-d { color: var(--bg); }
+
+/* 하루 일 / 기간 일 */
+.seg { display: inline-flex; gap: 3px; background: var(--sunk); padding: 3px; border-radius: 10px; }
+.seg-btn { border: 0; background: transparent; border-radius: 8px; padding: 5px 14px; font-size: 13px; color: var(--muted); }
+.seg-btn[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: 0 0 0 1px var(--line); }
+.field-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.date-box { display: grid; gap: 8px; }
+.date-box .seg { justify-self: start; }
+.range-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.range-row .date-chip { border-style: solid; }
+.range-row + .chip-row { margin-top: 6px; }
+.range-sep { color: var(--muted); }
+@media (max-width: 480px) { .range-sep { display: none; } }
+.cal-spans { display: grid; gap: 2px; margin: 1px -4px 0; }
+@media (min-width: 700px) { .cal-spans { margin: 1px -6px 0; } }
+.span-bar, .span-gap { display: block; height: 6px; }
+.span-bar { background: var(--accent); opacity: .85; }
+.span-bar.has-cat { background: var(--cat); }
+.span-bar.today { background: var(--warn); }
+.span-bar.over { background: var(--danger); }
+.span-bar.done { background: var(--muted); opacity: .45; }
+.span-bar.is-start { margin-left: 4px; border-top-left-radius: 3px; border-bottom-left-radius: 3px; }
+.span-bar.is-end { margin-right: 4px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
+.cal-chip.is-range { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+.cal-chip.is-range.has-cat { box-shadow: inset 3px 0 0 var(--cat), inset 0 0 0 1px var(--line); }
 .day-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; min-width: 0; align-content: start; }
 @media (min-width: 900px) { .day-panel { position: sticky; top: calc(76px + env(safe-area-inset-top, 0px)); } }
 .day-title { margin: 0; font-size: 18px; font-weight: 700; }
@@ -555,6 +580,27 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         <label for="cat-new" class="sr">새 카테고리</label>
         <input id="cat-new" name="cat-new" type="text" maxlength="20" placeholder="새 카테고리 직접 적기 (예: 업무)">
       </div>
+      <div class="field-head">
+        <span class="field-label" id="date-kind-label">날짜</span>
+        <div class="seg" id="date-mode" role="group" aria-labelledby="date-kind-label">
+          <button type="button" class="seg-btn" data-mode="day" aria-pressed="true">하루</button>
+          <button type="button" class="seg-btn" data-mode="range" aria-pressed="false">기간</button>
+        </div>
+      </div>
+      <fieldset id="range-fields" hidden>
+        <legend>기간 (시작 ~ 끝)</legend>
+        <div class="range-row">
+          <label class="date-chip" for="r-start">시작 <input type="date" id="r-start" name="r-start"></label>
+          <span class="range-sep" aria-hidden="true">~</span>
+          <label class="date-chip" for="r-end">끝 <input type="date" id="r-end" name="r-end"></label>
+        </div>
+        <div class="chip-row" id="r-quick" role="group" aria-label="기간 길이 빠르게 고르기">
+          <button type="button" class="chip small" data-len="3">3일</button>
+          <button type="button" class="chip small" data-len="7">1주</button>
+          <button type="button" class="chip small" data-len="14">2주</button>
+          <button type="button" class="chip small" data-len="month">한 달</button>
+        </div>
+      </fieldset>
       <fieldset id="due-chips">
         <legend>시행일</legend>
         <div class="chip-row">
@@ -622,6 +668,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     ['later', '7일 이후', ''],
     ['none', '날짜 없음', ''],
   ];
+  const RANGE_PICKS = [['3', '3일'], ['7', '1주'], ['14', '2주'], ['month', '한 달']];
+  const MAX_LANES = 3; /* 달력 한 칸에 보이는 기간 막대 줄 수 */
 
   const state = {
     tasks: [], ready: false, view: 'dash', tab: 'todo',
@@ -629,6 +677,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     panel: null, collapsed: new Set(), boardOpen: new Set(), day: '',
     calMonth: '', calSel: '', presetDue: null,
     cat: '', catDraft: '',
+    dateMode: 'day', rStart: null, rEnd: null,
   };
   let IX = emptyIndex();
   let store = null;
@@ -797,16 +846,72 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const extra = DEFAULT_CATS.filter((c) => !cats.includes(c)).slice(0, Math.max(0, 6 - cats.length));
     return { list: [...cats, ...extra], suggested: new Set(extra) };
   }
-  /* 시행일이 가까운 순 → 중요도(맨 위 항목 기준) 높은 순 → 먼저 적은 순 */
+  /* ---------- 하루 일 / 기간 일 ----------
+     하루 일: 시행일(due) 하루. 기간 일: 시작(start) ~ 끝(due)이고, 끝나는 날이 곧 마감이에요. */
+  const isRange = (t) => !!(t.start && t.due && t.start < t.due);
+  const spanDays = (s, e) => Math.round((parseISO(e) - parseISO(s)) / 86400000) + 1;
+  function fmtRange(s, e) {
+    const a = parseISO(s), b = parseISO(e);
+    const sameMonth = a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+    return `${fmtDate(s)} ~ ${sameMonth ? `${b.getDate()}일 (${WD[b.getDay()]})` : fmtDate(e)}`;
+  }
+  /* 화면에 쓰는 날짜 글: 기간 일은 '12월 1일 (화) ~ 5일 (토) · 5일간' */
+  function dateText(t) {
+    if (isRange(t)) return `${fmtRange(t.start, t.due)} · ${spanDays(t.start, t.due)}일간`;
+    return t.due ? fmtDate(t.due) : '';
+  }
+  /* 기간 길이 빠른 선택: 시작일을 넣어 끝나는 날 계산 (시작일 포함) */
+  function rangeEnd(start, len) {
+    const d = parseISO(start);
+    if (len === 'month') {
+      const t = new Date(d.getFullYear(), d.getMonth() + 1, d.getDate());
+      if (t.getDate() !== d.getDate()) t.setDate(0);
+      t.setDate(t.getDate() - 1);
+      return iso(t);
+    }
+    d.setDate(d.getDate() + Number(len) - 1);
+    return iso(d);
+  }
+  /* 손대야 할 때까지 남은 날: 시작 전인 기간 일은 시작일, 그 밖에는 끝(마감)일 기준 */
+  function actDays(t) {
+    if (isRange(t)) {
+      const s = daysUntil(t.start);
+      return s >= 0 ? s : daysUntil(t.due);
+    }
+    return daysUntil(effDue(t).due);
+  }
+  /* 상태 글과 색: 하루 일은 '오늘·내일·3일 뒤·2일 지남', 기간 일은 '3일 뒤 시작·진행 중 · 2일 남음·오늘 마감' */
+  function timing(t) {
+    if (isRange(t)) {
+      const s = daysUntil(t.start), n = daysUntil(t.due);
+      if (s > 0) return { label: s === 1 ? '내일 시작' : `${s}일 뒤 시작`, tone: s <= 2 ? 'soon' : '' };
+      if (n < 0) return { label: `${-n}일 지남`, tone: 'danger' };
+      if (n === 0) return { label: '오늘 마감', tone: 'warn' };
+      if (s === 0) return { label: `오늘 시작 · ${n}일 남음`, tone: 'warn' };
+      return { label: n === 1 ? '진행 중 · 내일 마감' : `진행 중 · ${n}일 남음`, tone: 'soon' };
+    }
+    const n = daysUntil(effDue(t).due);
+    return { label: whenLabel(n), tone: whenTone(n) };
+  }
+  /* 입력한 날짜를 저장할 모양으로: 하루면 시행일만, 기간이면 시작·끝 */
+  function draftDates(d) {
+    if (d.mode !== 'range') return { due: d.due || null, start: null };
+    if (!d.start || !d.end) return { error: '기간은 시작일과 끝나는 날을 모두 골라 주세요.' };
+    if (d.end < d.start) return { error: '끝나는 날이 시작일보다 빨라요. 날짜를 다시 골라 주세요.' };
+    if (d.end === d.start) return { due: d.end, start: null };
+    return { due: d.end, start: d.start };
+  }
+
+  /* 손댈 때가 가까운 순 → 중요도(맨 위 항목 기준) 높은 순 → 먼저 적은 순 */
   function byUrgency(a, b) {
-    const la = daysUntil(effDue(a).due), lb = daysUntil(effDue(b).due);
+    const la = actDays(a), lb = actDays(b);
     return ((la === null ? 1e6 : la) - (lb === null ? 1e6 : lb))
       || (rootOf(a).priority - rootOf(b).priority)
       || String(a.created).localeCompare(String(b.created))
       || a.id.localeCompare(b.id);
   }
   function bucketOf(t) {
-    const n = daysUntil(effDue(t).due);
+    const n = actDays(t);
     if (n === null) return 'none';
     if (n < 0) return 'over';
     if (n === 0) return 'today';
@@ -834,11 +939,15 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   function normalize(id, d) {
     const p = Number(d.priority);
     const str = (v) => (typeof v === 'string' && v ? v : null);
+    const due = validISO(d.due);
+    let start = validISO(d.start);
+    if (start && (!due || start >= due)) start = null; /* 시작이 끝과 같거나 늦으면 하루 일로 봅니다 */
     return {
       id: String(id),
       parentId: str(d.parentId),
       title: str(d.title) || '(제목 없음)',
-      due: validISO(d.due),
+      due,
+      start,
       priority: p === 1 || p === 3 ? p : 2,
       done: !!d.done,
       archived: !!d.archived,
@@ -978,8 +1087,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   }
 
   /* ---------- 동작 ---------- */
-  function addTask({ title, due = null, priority = 2, parentId = null, category = null }) {
-    const t = normalize(newId(), { title, due, priority, parentId, category, created: new Date().toISOString() });
+  function addTask({ title, due = null, start = null, priority = 2, parentId = null, category = null }) {
+    const t = normalize(newId(), { title, due, start, priority, parentId, category, created: new Date().toISOString() });
     commitCreate(t);
     return t;
   }
@@ -1068,9 +1177,9 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
 
   function addExamples() {
     if (!store) return;
-    const theme = addTask({ title: '(예시) 이사 준비', due: addDays(5), priority: 1, category: '생활' });
+    const theme = addTask({ title: '(예시) 이사 준비', start: todayISO(), due: addDays(5), priority: 1, category: '생활' });
     addTask({ title: '(예시) 인터넷 이전 신청', due: todayISO(), parentId: theme.id });
-    addTask({ title: '(예시) 짐 싸기', due: addDays(2), parentId: theme.id });
+    addTask({ title: '(예시) 짐 싸기', start: addDays(1), due: addDays(3), parentId: theme.id });
     const step = addTask({ title: '(예시) 전입신고', due: addDays(5), parentId: theme.id });
     addTask({ title: '(예시) 신분증 챙기기', parentId: step.id });
     addTask({ title: '(예시) 밀린 설거지 하기', due: addDays(-1), priority: 2, category: '생활' });
@@ -1108,13 +1217,19 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   function openAdd(t) {
     state.collapsed.delete(t.id);
     saveCollapsed();
-    state.panel = { type: 'add', id: t.id, draft: { title: '', due: null, msg: '' } };
+    state.panel = { type: 'add', id: t.id, draft: { title: '', due: null, mode: 'day', start: null, end: null, msg: '' } };
     requestRender();
     focusId('panel-title');
   }
   function openEdit(t) {
     const p = parentOf(t);
-    state.panel = { type: 'edit', id: t.id, draft: { title: t.title, due: t.due, pri: t.priority, parent: p ? p.id : '', category: t.category || '', msg: '' } };
+    state.panel = {
+      type: 'edit', id: t.id,
+      draft: {
+        title: t.title, due: t.due, mode: isRange(t) ? 'range' : 'day', start: isRange(t) ? t.start : null, end: isRange(t) ? t.due : null,
+        pri: t.priority, parent: p ? p.id : '', category: t.category || '', msg: '',
+      },
+    };
     requestRender();
     focusId('panel-title');
   }
@@ -1123,7 +1238,9 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const title = (d.title || '').trim();
     if (!title) { d.msg = '세부 할 일 내용을 적어 주세요.'; requestRender(); focusId('panel-title'); return; }
     if (!store) return;
-    addTask({ title, due: d.due, parentId: p.id });
+    const when = draftDates(d);
+    if (when.error) { d.msg = when.error; requestRender(); return; }
+    addTask({ title, due: when.due, start: when.start, parentId: p.id });
     d.title = '';
     d.msg = `'${short(title)}' 추가했어요. 이어서 더 적을 수 있어요.`;
     requestRender();
@@ -1136,7 +1253,10 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     if (!title) { d.msg = '제목을 비워 둘 수 없어요.'; requestRender(); focusId('panel-title'); return; }
     const fields = {};
     if (title !== cur.title) fields.title = title;
-    if ((d.due || null) !== cur.due) fields.due = d.due || null;
+    const when = draftDates(d);
+    if (when.error) { d.msg = when.error; requestRender(); return; }
+    if (when.due !== cur.due) fields.due = when.due;
+    if (when.start !== cur.start) fields.start = when.start;
     const curParent = parentOf(cur);
     const newParent = d.parent || null;
     if (newParent !== (curParent ? curParent.id : null)) {
@@ -1282,14 +1402,15 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const themes = IX.roots.filter((t) => !t.done && !t.archived && liveKids(t).length && inCat(t)).length;
     const doneToday = state.tasks.filter((t) => t.done && localDay(t.doneAt) === state.day && inCat(t)).length;
     const pool = state.tasks.filter((t) => !archivedPath(t) && inCat(t));
+    const ongoing = state.tasks.filter((t) => isRange(t) && isOpen(t) && inCat(t) && daysUntil(t.start) <= 0 && daysUntil(t.due) >= 0).length;
     const doneAll = pool.filter((t) => t.done).length;
     const pct = pool.length ? Math.round((doneAll / pool.length) * 100) : 0;
     const v = (n) => (state.ready ? String(n) : '–');
     const fill = el('span', { class: 'fill' });
     fill.style.width = `${pct}%`;
     $('#kpis').replaceChildren(
-      kpi('지난 일', v(c.over), '시행일이 지났는데 안 끝난 일', state.ready && c.over ? 'danger' : ''),
-      kpi('오늘', v(c.today), '시행일이 오늘인 일', state.ready && c.today ? 'warn' : ''),
+      kpi('지난 일', v(c.over), '날짜가 지났는데 안 끝난 일', state.ready && c.over ? 'danger' : ''),
+      kpi('오늘', v(c.today), '오늘 하거나 시작·마감하는 일', state.ready && c.today ? 'warn' : ''),
       kpi('7일 안', v(in7), '오늘부터 6일 뒤까지', ''),
       kpi('진행 중 테마', v(themes), '세부 할 일이 있는 큰 테마', ''),
       kpi('오늘 끝냄', v(doneToday), '오늘 완료로 표시한 일', ''),
@@ -1300,10 +1421,11 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     if (!state.ready) s.textContent = '할 일을 불러오는 중이에요…';
     else if (!state.tasks.length) s.textContent = '아직 적어 둔 할 일이 없어요. 위의 + 추가로 시작해 보세요.';
     else if (state.cat && !pool.length) s.textContent = '이 카테고리에는 아직 할 일이 없어요.';
-    else if (c.over || c.today) {
+    else if (c.over || c.today || ongoing) {
       const parts = [];
       if (c.today) parts.push(`오늘 할 일 ${c.today}개`);
-      if (c.over) parts.push(`시행일이 지난 일 ${c.over}개`);
+      if (c.over) parts.push(`날짜가 지난 일 ${c.over}개`);
+      if (ongoing) parts.push(`기간 진행 중인 일 ${ongoing}개`);
       s.textContent = `${parts.join(', ')}가 있어요.`;
     } else if (act.length) {
       s.textContent = in7 ? `오늘 급한 일은 없어요. 7일 안에 할 일이 ${in7}개 있어요.` : '오늘 급한 일은 없어요. 여유 있을 때 미리 해 두세요.';
@@ -1335,14 +1457,14 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const focus = (timer.taskId && act.find((t) => t.id === timer.taskId)) || act[0];
     const running = !!timer.handle && timer.taskId === focus.id;
     const eff = effDue(focus);
-    const n = daysUntil(eff.due);
+    const tm = timing(focus);
     const crumb = crumbText(focus);
     if (crumb) body.append(el('p', { class: 'crumb', text: `${crumb} ›` }));
     body.append(
       el('p', { class: 'now-title' }, el('mark', { text: focus.title })),
       el('p', { class: 'now-meta' },
-        el('span', { class: `pill ${whenTone(n)}`, text: whenLabel(n) }),
-        eff.due ? el('span', { class: 'date', text: fmtDate(eff.due) + (eff.inherited ? ' · 상위 항목 날짜' : '') }) : null,
+        el('span', { class: `pill ${tm.tone}`, text: tm.label }),
+        eff.due ? el('span', { class: 'date', text: eff.inherited ? `${fmtDate(eff.due)} · 상위 항목 날짜` : dateText(focus) }) : null,
         catTagFor(focus),
         el('span', { class: `pri p${rootOf(focus).priority}`, text: `중요도 ${PRI[rootOf(focus).priority]}` })));
     const actions = el('div', { class: 'now-actions' });
@@ -1372,7 +1494,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       body.append(el('p', { class: 'next' }, '그다음: ',
         nc ? el('span', { text: `${nc} › ` }) : null,
         el('b', { text: next.title }),
-        ` · ${whenLabel(daysUntil(effDue(next).due))}`));
+        ` · ${timing(next).label}`));
     }
   }
 
@@ -1385,9 +1507,15 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       d.setDate(d.getDate() + i);
       days.push({ d, iso: iso(d), n: 0 });
     }
+    const seen = new Set();
     act.forEach((t) => {
+      if (isRange(t)) {
+        /* 기간 일은 그 기간에 걸친 날마다 셉니다 */
+        days.forEach((x) => { if (t.start <= x.iso && x.iso <= t.due) { x.n += 1; seen.add(t.id); } });
+        return;
+      }
       const k = daysUntil(effDue(t).due);
-      if (k !== null && k >= 0 && k < 7) days[k].n += 1;
+      if (k !== null && k >= 0 && k < 7) { days[k].n += 1; seen.add(t.id); }
     });
     const max = Math.max(1, ...days.map((x) => x.n));
     const chart = el('div', { class: 'week-chart' });
@@ -1407,7 +1535,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         el('span', { class: 'wk-date', text: String(x.d.getDate()) })));
     });
     body.append(chart);
-    const total = days.reduce((s, x) => s + x.n, 0);
+    const total = seen.size;
     const busiest = days.reduce((a, b) => (b.n > a.n ? b : a), days[0]);
     const weekHols = days.filter((x) => holidayOf(x.iso)).map((x) => `${fmtDate(x.iso)} ${holidayOf(x.iso)}`);
     body.append(el('p', {
@@ -1430,13 +1558,13 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const anc = ancestors(t);
     const from = anc.findIndex((a) => a.id === theme.id) + 1;
     const crumb = anc.slice(from).map((a) => a.title).join(' › ');
-    const n = daysUntil(effDue(t).due);
+    const tm = timing(t);
     return el('li', { class: 'mini' },
       checkEl(t, 'tc'),
       el('div', { class: 'mini-main' },
         crumb ? el('p', { class: 'crumb', text: `${crumb} ›` }) : null,
         el('p', { class: 'mini-title', text: t.title })),
-      el('span', { class: `pill ${whenTone(n)}`, text: whenLabel(n) }));
+      el('span', { class: `pill ${tm.tone}`, text: tm.label }));
   }
   function themeCard(th, act) {
     const desc = descendants(th).filter((d) => !archivedPath(d));
@@ -1444,7 +1572,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const pct = desc.length ? Math.round((done / desc.length) * 100) : 0;
     const mine = act.filter((t) => ancestors(t).some((a) => a.id === th.id)).sort(byUrgency);
     const over = mine.filter((t) => bucketOf(t) === 'over').length;
-    const n = daysUntil(th.due);
+    const tm = timing(th);
     const fill = el('span', { class: 'fill' });
     fill.style.width = `${pct}%`;
     const card = el('article', { class: 'theme-card', 'aria-label': th.title },
@@ -1453,8 +1581,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         over ? el('span', { class: 'pill danger', text: `지난 일 ${over}` }) : null),
       el('p', { class: 'tc-meta' },
         th.category ? catTag(th.category) : null,
-        el('span', { class: `pill ${whenTone(n)}`, text: whenLabel(n) }),
-        th.due ? el('span', { class: 'date', text: fmtDate(th.due) }) : null,
+        el('span', { class: `pill ${tm.tone}`, text: tm.label }),
+        th.due ? el('span', { class: 'date', text: dateText(th) }) : null,
         el('span', { class: `pri p${th.priority}`, text: `중요도 ${PRI[th.priority]}` })),
       el('div', { class: 'tc-progress' },
         el('span', { class: 'bar wide', 'aria-hidden': 'true' }, fill),
@@ -1493,14 +1621,18 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const eff = effDue(t);
     const n = daysUntil(eff.due);
     let tail = null;
-    if (bucket === 'over') tail = el('span', { class: 'pill danger', text: whenLabel(n) });
+    if (isRange(t)) {
+      const tm = timing(t);
+      tail = el('span', { class: `pill ${tm.tone}`, text: tm.label });
+    } else if (bucket === 'over') tail = el('span', { class: 'pill danger', text: whenLabel(n) });
     else if (eff.due && bucket !== 'today') tail = el('span', { class: 'date', text: fmtDate(eff.due) });
     return el('li', { class: 'mini' },
       checkEl(t, 'bd'),
       el('div', { class: 'mini-main' },
         crumbEl(t),
         el('p', { class: 'mini-title', text: t.title }),
-        eff.inherited && eff.due ? el('p', { class: 'mini-note', text: '상위 항목 날짜를 따름' }) : null),
+        eff.inherited && eff.due ? el('p', { class: 'mini-note', text: '상위 항목 날짜를 따름' }) : null,
+        isRange(t) ? el('p', { class: 'mini-note', text: dateText(t) }) : null),
       tail);
   }
   function renderBoard(act) {
@@ -1616,28 +1748,60 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const cells = Math.ceil((first.getDay() + last.getDate()) / 7) * 7;
     const today = todayISO();
     $('#cal-title').textContent = `${y}년 ${m}월`;
+    /* 하루 일은 그날 칸에, 기간 일은 시작~끝 칸에 이어지는 막대로 */
+    const visible = state.tasks.filter((t) => t.due && !archivedPath(t) && inCat(t));
     const byDay = new Map();
-    for (const t of state.tasks) {
-      if (!t.due || archivedPath(t) || !inCat(t)) continue;
+    const ranges = [];
+    for (const t of visible) {
+      if (isRange(t)) { ranges.push(t); continue; }
       if (!byDay.has(t.due)) byDay.set(t.due, []);
       byDay.get(t.due).push(t);
     }
     const monthKey = `${y}-${pad2(m)}-`;
-    const inMonth = state.tasks.filter((t) => t.due && t.due.startsWith(monthKey) && !archivedPath(t) && inCat(t));
+    const mFirst = `${monthKey}01`, mLast = `${monthKey}${pad2(last.getDate())}`;
+    const inMonth = visible.filter((t) => (isRange(t) ? t.start <= mLast && t.due >= mFirst : t.due.startsWith(monthKey)));
+    const mRange = inMonth.filter(isRange).length;
     const mDone = inMonth.filter((t) => !isOpen(t)).length;
     const mOver = inMonth.filter((t) => isOpen(t) && daysUntil(t.due) < 0).length;
     $('#cal-sum').textContent = !state.ready ? '불러오는 중이에요…'
-      : inMonth.length ? `${m}월에 시행일이 잡힌 일 ${inMonth.length}개 · 끝낸 일 ${mDone}개${mOver ? ` · 지난 일 ${mOver}개` : ''}`
-      : `${m}월에는 시행일이 잡힌 일이 없어요.`;
+      : inMonth.length ? `${m}월에 할 일 ${inMonth.length}개${mRange ? `(기간 일 ${mRange}개 포함)` : ''} · 끝낸 일 ${mDone}개${mOver ? ` · 지난 일 ${mOver}개` : ''}`
+      : `${m}월에는 날짜가 잡힌 일이 없어요.`;
+    const days = [];
+    for (let i = 0; i < cells; i++) days.push(iso(new Date(y, m - 1, 1 - first.getDay() + i)));
+    /* 한 주(한 줄) 안에서 같은 기간 일이 같은 높이에 이어지도록 줄(lane)을 나눕니다 */
+    const lanesOf = new Map();
+    const startsOf = new Map();
+    for (let r = 0; r < cells / 7; r++) {
+      const rowDays = days.slice(r * 7, r * 7 + 7);
+      const rs = rowDays[0], re = rowDays[6];
+      const segs = ranges
+        .filter((t) => t.start <= re && t.due >= rs)
+        .map((t) => ({ t, s: t.start > rs ? t.start : rs, e: t.due < re ? t.due : re }))
+        .sort((a, b) => a.s.localeCompare(b.s) || b.e.localeCompare(a.e) || byDayOrder(a.t, b.t));
+      const laneEnd = [];
+      for (const g of segs) {
+        let L = laneEnd.findIndex((end) => end < g.s);
+        if (L < 0) { L = laneEnd.length; laneEnd.push(g.e); } else laneEnd[L] = g.e;
+        g.lane = L;
+        if (!startsOf.has(g.s)) startsOf.set(g.s, []);
+        startsOf.get(g.s).push(g.t);
+      }
+      const shown = Math.min(laneEnd.length, MAX_LANES);
+      for (const day of rowDays) {
+        const lanes = new Array(shown).fill(null);
+        for (const g of segs) if (g.lane < shown && g.s <= day && day <= g.e) lanes[g.lane] = g;
+        lanesOf.set(day, lanes);
+      }
+    }
     const grid = $('#cal-grid');
     grid.replaceChildren();
-    for (let i = 0; i < cells; i++) {
-      const d = new Date(y, m - 1, 1 - first.getDay() + i);
-      const key = iso(d);
+    for (const key of days) {
+      const d = parseISO(key);
       const wd = d.getDay();
-      const list = (byDay.get(key) || []).slice().sort(byDayOrder);
-      const openN = list.filter(isOpen).length;
-      const doneN = list.length - openN;
+      const singles = (byDay.get(key) || []).slice().sort(byDayOrder);
+      const spanning = ranges.filter((t) => t.start <= key && key <= t.due);
+      const openN = singles.filter(isOpen).length + spanning.filter(isOpen).length;
+      const doneN = singles.length + spanning.length - openN;
       const cls = ['cal-day'];
       if (d.getMonth() !== m - 1) cls.push('is-out');
       if (key === today) cls.push('is-today');
@@ -1646,14 +1810,25 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       if (wd === 6) cls.push('is-sat');
       const hol = holidayOf(key);
       if (hol) cls.push('is-hol');
+      const lanes = lanesOf.get(key) || [];
+      const spans = lanes.length ? el('span', { class: 'cal-spans', 'aria-hidden': 'true' },
+        ...lanes.map((g) => (g
+          ? el('span', { class: 'span-bar' + chipTone(g.t) + catClass(g.t) + (key === g.t.start ? ' is-start' : '') + (key === g.t.due ? ' is-end' : '') })
+          : el('span', { class: 'span-gap' })))) : null;
+      const chipItems = [...(startsOf.get(key) || []).map((t) => ({ t, range: true })), ...singles.map((t) => ({ t, range: false }))];
       let chips = null, dots = null;
-      if (list.length) {
+      if (chipItems.length) {
         chips = el('span', { class: 'cal-chips' });
-        list.slice(0, 3).forEach((t) => chips.append(el('span', { class: 'cal-chip' + chipTone(t) + (liveKids(t).length ? ' theme' : '') + catClass(t), text: t.title })));
-        if (list.length > 3) chips.append(el('span', { class: 'cal-chip-more', text: `+${list.length - 3}개 더` }));
+        chipItems.slice(0, 3).forEach(({ t, range }) => chips.append(el('span', {
+          class: 'cal-chip' + chipTone(t) + (liveKids(t).length ? ' theme' : '') + catClass(t) + (range ? ' is-range' : ''),
+          text: range ? `${t.title} ~${Number(t.due.slice(5, 7))}/${Number(t.due.slice(8))}` : t.title,
+        })));
+        if (chipItems.length > 3) chips.append(el('span', { class: 'cal-chip-more', text: `+${chipItems.length - 3}개 더` }));
+      }
+      if (singles.length) {
         dots = el('span', { class: 'cal-dots' });
-        list.slice(0, 4).forEach((t) => dots.append(el('span', { class: 'dot' + chipTone(t) })));
-        if (list.length > 4) dots.append(el('span', { class: 'cal-more-n', text: `+${list.length - 4}` }));
+        singles.slice(0, 4).forEach((t) => dots.append(el('span', { class: 'dot' + chipTone(t) })));
+        if (singles.length > 4) dots.append(el('span', { class: 'cal-more-n', text: `+${singles.length - 4}` }));
       }
       let label = `${fmtDayLong(key)}${hol ? ` ${hol}` : ''}, 할 일 ${openN}개`;
       if (doneN) label += `, 끝낸 일 ${doneN}개`;
@@ -1661,7 +1836,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         type: 'button', class: cls.join(' '), id: `cal-${key}`, 'data-day': key,
         'aria-pressed': String(key === state.calSel), 'aria-label': label,
         onclick: () => selectDay(key, false),
-      }, el('span', { class: 'cal-num', text: String(d.getDate()) }), hol ? el('span', { class: 'cal-hol', text: hol }) : null, chips, dots));
+      }, el('span', { class: 'cal-num', text: String(d.getDate()) }), spans, hol ? el('span', { class: 'cal-hol', text: hol }) : null, chips, dots));
     }
     const hols = Object.keys(HOLIDAYS).filter((k) => k.startsWith(monthKey)).sort();
     const holBox = $('#cal-hols');
@@ -1672,14 +1847,20 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         el('b', { text: `${m}월 공휴일 ` }),
         hols.map((k) => `${Number(k.slice(8))}일(${WD[parseISO(k).getDay()]}) ${HOLIDAYS[k]}`).join(' · '));
     }
-    renderDayPanel(byDay);
+    renderDayPanel(byDay, ranges);
   }
-  function dayItem(t, inherited) {
+  function dayItem(t, inherited, day) {
     const open = isOpen(t);
     const kids = liveKids(t);
     const meta = el('p', { class: 'row-meta' });
-    const n = daysUntil(effDue(t).due);
-    if (open && n !== null && n < 0) meta.append(el('span', { class: 'pill danger', text: whenLabel(n) }));
+    if (isRange(t)) {
+      const tm = timing(t);
+      if (open) meta.append(el('span', { class: `pill ${tm.tone}`, text: tm.label }));
+      meta.append(el('span', { class: 'date', text: day ? `${dateText(t)} · ${spanDays(t.start, day)}일째` : dateText(t) }));
+    } else {
+      const n = daysUntil(effDue(t).due);
+      if (open && n !== null && n < 0) meta.append(el('span', { class: 'pill danger', text: whenLabel(n) }));
+    }
     if (kids.length) meta.append(el('span', { class: 'date', text: `세부 ${kids.filter((c) => c.done).length}/${kids.length}` }));
     if (!parentOf(t)) meta.append(el('span', { class: `pri p${t.priority}`, text: `중요도 ${PRI[t.priority]}` }));
     if (inherited) meta.append(el('span', { class: 'date', text: '상위 항목 날짜를 따름' }));
@@ -1692,14 +1873,15 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         el('p', { class: 'mini-title', text: t.title }),
         meta));
   }
-  function renderDayPanel(byDay) {
+  function renderDayPanel(byDay, ranges) {
     const box = $('#day-panel');
     box.replaceChildren();
     const day = state.calSel;
     const own = (byDay.get(day) || []).slice().sort(byDayOrder);
+    const spanning = (ranges || []).filter((t) => t.start <= day && day <= t.due).sort(byDayOrder);
     const inherited = state.tasks.filter((t) => !t.due && isOpen(t) && effDue(t).due === day && inCat(t)).sort(byUrgency);
-    const ownOpen = own.filter(isOpen).length;
-    const ownDone = own.length - ownOpen;
+    const ownOpen = own.filter(isOpen).length + spanning.filter(isOpen).length;
+    const ownDone = own.length + spanning.length - ownOpen;
     box.append(el('div', null,
       el('h3', { class: 'day-title', text: fmtDayLong(day) }),
       holidayOf(day) ? el('span', { class: 'hol-pill', text: `공휴일 · ${holidayOf(day)}` }) : null,
@@ -1710,11 +1892,15 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       })));
     if (state.ready) {
       if (own.length) box.append(el('ul', { class: 'mini-list' }, ...own.map((t) => dayItem(t, false))));
+      if (spanning.length) {
+        box.append(el('p', { class: 'tc-sub', text: '이 날에 걸친 기간 일' }),
+          el('ul', { class: 'mini-list' }, ...spanning.map((t) => dayItem(t, false, day))));
+      }
       if (inherited.length) {
         box.append(el('p', { class: 'tc-sub', text: '상위 항목 날짜를 따르는 일' }),
           el('ul', { class: 'mini-list' }, ...inherited.map((t) => dayItem(t, true))));
       }
-      if (!own.length && !inherited.length) box.append(el('p', { class: 'day-empty', text: '이 날에 정해진 할 일이 없어요.' }));
+      if (!own.length && !spanning.length && !inherited.length) box.append(el('p', { class: 'day-empty', text: '이 날에 정해진 할 일이 없어요.' }));
     }
     box.append(el('button', { type: 'button', class: 'primary small', id: 'day-add', text: '+ 이 날에 할 일 추가', onclick: () => openAddDialog('', day) }));
   }
@@ -1735,9 +1921,9 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   function treeMeta(t, depth, kids) {
     const meta = el('p', { class: 'row-meta' });
     if (t.due) {
-      const n = daysUntil(t.due);
-      if (!t.done) meta.append(el('span', { class: `pill ${whenTone(n)}`, text: whenLabel(n) }));
-      meta.append(el('span', { class: 'date', text: fmtDate(t.due) }));
+      const tm = timing(t);
+      if (!t.done) meta.append(el('span', { class: `pill ${tm.tone}`, text: tm.label }));
+      meta.append(el('span', { class: 'date', text: dateText(t) }));
     }
     if (kids.length) {
       const done = kids.filter((c) => c.done).length;
@@ -1753,7 +1939,37 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     }
     return meta.childNodes.length ? meta : null;
   }
+  /* 트리 안 입력 칸의 날짜: [하루] 시행일 또는 [기간] 시작 ~ 끝 */
   function dateField(d, prefix) {
+    const mode = d.mode === 'range' ? 'range' : 'day';
+    const seg = el('div', { class: 'seg', role: 'group', 'aria-label': '날짜 종류' },
+      ...[['day', '하루'], ['range', '기간']].map(([k, label]) => el('button', {
+        type: 'button', class: 'seg-btn', id: `${prefix}-mode-${k}`, 'aria-pressed': String(mode === k), text: label,
+        onclick: () => {
+          if (mode === k) return;
+          d.mode = k;
+          if (k === 'range' && !d.start) d.start = d.due || todayISO();
+          requestRender();
+        },
+      })));
+    if (mode === 'range') {
+      const range = el('div', { class: 'range-row' },
+        el('label', { class: 'date-chip is-on', for: `${prefix}-rs` }, '시작',
+          el('input', { type: 'date', id: `${prefix}-rs`, value: d.start || '', onchange: (e) => { d.start = validISO(e.target.value); requestRender(); } })),
+        el('span', { class: 'range-sep', 'aria-hidden': 'true', text: '~' }),
+        el('label', { class: 'date-chip is-on', for: `${prefix}-re` }, '끝',
+          el('input', { type: 'date', id: `${prefix}-re`, value: d.end || '', min: d.start || null, onchange: (e) => { d.end = validISO(e.target.value); requestRender(); } })));
+      const quick = el('div', { class: 'chip-row' },
+        ...RANGE_PICKS.map(([len, label]) => el('button', {
+          type: 'button', class: 'chip small', id: `${prefix}-len-${len}`, text: label,
+          'aria-pressed': String(!!d.start && d.end === rangeEnd(d.start, len)),
+          onclick: () => { d.start = d.start || todayISO(); d.end = rangeEnd(d.start, len); requestRender(); },
+        })));
+      return el('div', { class: 'date-box' }, seg, range, quick);
+    }
+    return el('div', { class: 'date-box' }, seg, dayChips(d, prefix));
+  }
+  function dayChips(d, prefix) {
     const row = el('div', { class: 'chip-row' });
     const picks = [['today', '오늘', todayISO()], ['tomorrow', '내일', addDays(1)], ['none', '없음', null]];
     for (const [k, label, value] of picks) {
@@ -1810,7 +2026,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         type: 'text', id: 'panel-title', maxlength: '120', enterkeyhint: 'done', placeholder: '예: 서류 챙기기',
         value: d.title || '', oninput: (e) => { d.title = e.target.value; },
       }),
-      el('span', { class: 'field-label', text: '시행일' }),
+      el('span', { class: 'field-label', text: '날짜' }),
       dateField(d, 'pa'),
       el('p', { class: 'panel-msg', role: 'status', text: d.msg || '' }),
       el('div', { class: 'panel-actions' },
@@ -1832,7 +2048,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     return el('form', { class: 'panel', novalidate: 'novalidate', onsubmit: (e) => { e.preventDefault(); saveEdit(t); } },
       el('label', { class: 'field-label', for: 'panel-title', text: '제목' }),
       el('input', { type: 'text', id: 'panel-title', maxlength: '120', value: d.title || '', oninput: (e) => { d.title = e.target.value; } }),
-      el('span', { class: 'field-label', text: '시행일' }),
+      el('span', { class: 'field-label', text: '날짜' }),
       dateField(d, 'pe'),
       el('label', { class: 'field-label', for: 'pe-parent', text: '위치 (어느 항목 아래에 둘지)' }),
       sel,
@@ -1890,7 +2106,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     if (mode === 'done') {
       const day = localDay(t.doneAt);
       meta.append(el('span', { class: 'date', text: day ? `${fmtDate(day)} 완료` : '완료' }));
-      if (t.due) meta.append(el('span', { class: 'date', text: `시행일 ${fmtDate(t.due)}` }));
+      if (t.due) meta.append(el('span', { class: 'date', text: isRange(t) ? `기간 ${dateText(t)}` : `시행일 ${fmtDate(t.due)}` }));
     } else {
       const day = localDay(t.archivedAt);
       meta.append(el('span', { class: 'date', text: day ? `${fmtDate(day)} 보관` : '보관함' }));
@@ -1995,10 +2211,26 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       }, el('span', { class: `cat-dot cat-c${catColor(c)}`, 'aria-hidden': 'true' }), c)));
   }
   function paintForm() {
+    const ranged = state.dateMode === 'range';
+    document.querySelectorAll('#date-mode [data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === state.dateMode)));
+    $('#due-chips').hidden = ranged;
+    $('#range-fields').hidden = !ranged;
     document.querySelectorAll('#due-chips [data-due]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.due === state.dueKind)));
+    document.querySelectorAll('#r-quick [data-len]').forEach((b) => b.setAttribute('aria-pressed', String(!!state.rStart && state.rEnd === rangeEnd(state.rStart, b.dataset.len))));
     document.querySelectorAll('#pri-chips [data-pri]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.pri) === state.pri)));
     $('#date-chip').classList.toggle('is-on', state.dueKind === 'custom');
-    $('#due-preview').textContent = state.due ? `시행일: ${fmtDate(state.due)} · ${whenLabel(daysUntil(state.due))}` : '시행일: 정하지 않음';
+    $('#r-end').min = state.rStart || '';
+    if (!ranged) {
+      $('#due-preview').textContent = state.due ? `시행일: ${fmtDate(state.due)} · ${whenLabel(daysUntil(state.due))}` : '시행일: 정하지 않음';
+    } else if (!state.rStart || !state.rEnd) {
+      $('#due-preview').textContent = '기간: 시작일과 끝나는 날을 골라 주세요';
+    } else if (state.rEnd < state.rStart) {
+      $('#due-preview').textContent = '기간: 끝나는 날이 시작일보다 빨라요';
+    } else if (state.rEnd === state.rStart) {
+      $('#due-preview').textContent = `시작과 끝이 같아서 하루 일(${fmtDate(state.rStart)})로 넣어요`;
+    } else {
+      $('#due-preview').textContent = `기간: ${fmtRange(state.rStart, state.rEnd)} · ${spanDays(state.rStart, state.rEnd)}일간`;
+    }
     const parent = state.parent ? IX.byId.get(state.parent) : null;
     $('#pri-chips').hidden = !!parent;
     $('#cat-field').hidden = !!parent;
@@ -2041,6 +2273,11 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     state.catDraft = state.cat && state.cat !== NONE_CAT ? state.cat : '';
     $('#cat-new').value = '';
     state.presetDue = validISO(due) || null;
+    state.dateMode = 'day';
+    state.rStart = null;
+    state.rEnd = null;
+    $('#r-start').value = '';
+    $('#r-end').value = '';
     setDueDate(state.presetDue);
     $('#form-msg').replaceChildren();
     if (typeof dlg.showModal === 'function') { if (!dlg.open) dlg.showModal(); }
@@ -2077,6 +2314,27 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     state.catDraft = e.target.value;
     paintCatPick();
   });
+  /* 하루 / 기간 고르기 */
+  $('#date-mode').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mode]');
+    if (!b) return;
+    state.dateMode = b.dataset.mode === 'range' ? 'range' : 'day';
+    if (state.dateMode === 'range' && !state.rStart) state.rStart = state.due || state.presetDue || todayISO();
+    $('#r-start').value = state.rStart || '';
+    $('#r-end').value = state.rEnd || '';
+    paintForm();
+  });
+  $('#r-start').addEventListener('change', (e) => { state.rStart = validISO(e.target.value); paintForm(); });
+  $('#r-end').addEventListener('change', (e) => { state.rEnd = validISO(e.target.value); paintForm(); });
+  $('#r-quick').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-len]');
+    if (!b) return;
+    state.rStart = state.rStart || todayISO();
+    state.rEnd = rangeEnd(state.rStart, b.dataset.len);
+    $('#r-start').value = state.rStart;
+    $('#r-end').value = state.rEnd;
+    paintForm();
+  });
   /* 삭제 확인 창 */
   $('#confirm-yes').addEventListener('click', () => {
     const id = pendingDelete;
@@ -2099,10 +2357,14 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const title = input.value.trim();
     if (!title) { msg.replaceChildren(el('span', { text: '할 일 내용을 적어 주세요.' })); input.focus(); return; }
     if (!store) { msg.replaceChildren(el('span', { text: '아직 저장소를 불러오는 중이에요. 잠시 후 다시 눌러 주세요.' })); return; }
+    const when = draftDates(state.dateMode === 'range'
+      ? { mode: 'range', start: state.rStart, end: state.rEnd }
+      : { mode: 'day', due: state.due });
+    if (when.error) { msg.replaceChildren(el('span', { text: when.error })); return; }
     const parent = state.parent ? IX.byId.get(state.parent) : null;
     if (parent) { state.collapsed.delete(parent.id); saveCollapsed(); }
     const t = addTask({
-      title, due: state.due, priority: parent ? 2 : state.pri,
+      title, due: when.due, start: when.start, priority: parent ? 2 : state.pri,
       parentId: parent ? parent.id : null, category: parent ? null : cleanCat(state.catDraft),
     });
     if (parent) {
@@ -2121,7 +2383,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       state.pri = 2;
     }
     input.value = '';
-    setDueDate(state.presetDue);
+    if (state.dateMode !== 'range') setDueDate(state.presetDue);
     input.focus();
   });
 
