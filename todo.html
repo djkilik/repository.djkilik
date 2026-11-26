@@ -45,6 +45,7 @@
 
 [hidden] { display: none !important; }
 body {
+  margin: 0;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--f-body);
@@ -71,10 +72,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .view-btn { border: 0; background: transparent; border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .view-btn[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: 0 0 0 1px var(--line); }
 .add-open { white-space: nowrap; padding: 8px 14px; }
-@media (max-width: 480px) {
+@media (max-width: 520px) {
+  .brand { display: none; }
   .hide-sm { display: none; }
-  .brand { font-size: 19px; }
-  .view-btn { padding: 6px 10px; }
+  .views { flex: 1; }
+  .view-btn { flex: 1; padding: 7px 4px; }
   .add-open { padding: 8px 12px; }
 }
 
@@ -86,6 +88,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 #view-dash { display: grid; gap: 24px; min-width: 0; }
 #view-tree { width: 100%; max-width: 760px; margin: 0 auto; min-width: 0; }
+#view-cal { min-width: 0; }
 
 .label { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--muted); }
 .crumb { margin: 0 0 1px; font-size: 12px; color: var(--muted); line-height: 1.45; }
@@ -135,7 +138,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .next b { color: var(--ink); font-weight: 500; }
 
 .week-chart { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; align-items: end; }
-.wk-col { display: grid; justify-items: center; gap: 4px; min-width: 0; }
+.wk-col { display: grid; justify-items: center; gap: 4px; min-width: 0; border: 0; background: transparent; padding: 4px 0; border-radius: 8px; }
+.wk-col:hover { background: var(--sunk); }
 .wk-n { font-family: var(--f-mono); font-size: 13px; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .wk-n.is-zero { color: var(--muted); }
 .wk-bar { width: 100%; max-width: 34px; height: 76px; background: var(--sunk); border-radius: 6px; display: flex; align-items: flex-end; overflow: hidden; }
@@ -243,6 +247,68 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
 .form-msg:empty { display: none; }
 .form-msg .link-btn { padding: 0 2px; }
 
+/* 달력 */
+.card > .sec-head { margin-bottom: 10px; }
+.cal-layout { display: grid; gap: 16px; }
+@media (min-width: 900px) { .cal-layout { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; } }
+.cal-main { min-width: 0; }
+.cal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 6px; }
+.cal-title { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 26px; line-height: 1.2; }
+.cal-nav { display: flex; gap: 6px; }
+.cal-nav .ghost { background: var(--surface); }
+.cal-sum { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+.cal { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.cal-wd, .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-wd { border-bottom: 1px solid var(--line); }
+.cal-wd span { padding: 8px 0; text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+.cal-wd .sun { color: var(--danger); }
+.cal-wd .sat { color: var(--accent); }
+.cal-day {
+  min-width: 0; min-height: 58px; margin: 0; border: 0; border-radius: 0;
+  border-top: 1px solid var(--line); border-left: 1px solid var(--line);
+  background: var(--surface); padding: 4px; display: flex; flex-direction: column; align-items: stretch; gap: 4px; text-align: left;
+}
+.cal-day:nth-child(7n+1) { border-left: 0; }
+.cal-day:nth-child(-n+7) { border-top: 0; }
+.cal-day:hover { background: var(--sunk); }
+.cal-day.is-out { background: var(--bg); }
+.cal-day.is-out .cal-num { opacity: .55; }
+.cal-day.is-sel { box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-num {
+  align-self: flex-start; min-width: 22px; height: 22px; padding: 0 4px; box-sizing: border-box;
+  display: grid; place-items: center; border-radius: 999px;
+  font-family: var(--f-mono); font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.cal-day.is-sun .cal-num { color: var(--danger); }
+.cal-day.is-sat .cal-num { color: var(--accent); }
+.cal-day.is-today .cal-num { background: var(--ink); color: var(--bg); }
+.cal-dots { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding-left: 3px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.dot.today { background: var(--warn); }
+.dot.over { background: var(--danger); }
+.dot.done { background: var(--muted); opacity: .5; }
+.cal-more-n { font-family: var(--f-mono); font-size: 10px; color: var(--muted); line-height: 1; }
+.cal-chips { display: none; }
+@media (min-width: 700px) {
+  .cal-day { min-height: 100px; padding: 6px; }
+  .cal-dots { display: none; }
+  .cal-chips { display: grid; gap: 3px; }
+}
+.cal-chip { display: block; font-size: 12px; line-height: 1.35; padding: 2px 6px; border-radius: 6px; background: var(--accent-soft); color: var(--ink); }
+.cal-chip.theme { font-weight: 700; }
+.cal-chip.today { background: var(--warn-soft); }
+.cal-chip.over { background: var(--danger-soft); color: var(--danger); }
+.cal-chip.done { background: var(--sunk); color: var(--muted); text-decoration: line-through; }
+.cal-chip-more { display: block; font-size: 11px; color: var(--muted); padding-left: 4px; }
+.cal-note { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+.day-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+@media (min-width: 900px) { .day-panel { position: sticky; top: calc(76px + env(safe-area-inset-top, 0px)); } }
+.day-title { margin: 0; font-size: 18px; font-weight: 700; }
+.day-sub { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.day-empty { margin: 0; font-size: 14px; color: var(--muted); }
+.day-panel > .primary { justify-self: start; }
+.mini.is-done .mini-title { text-decoration: line-through; color: var(--muted); }
+
 /* 할 일 트리 */
 .list-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .list-head .label { margin: 0; }
@@ -326,6 +392,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     <h1 class="brand">할 일 나침반</h1>
     <div class="views" role="group" aria-label="화면 고르기">
       <button type="button" class="view-btn" data-view="dash" id="view-btn-dash" aria-pressed="true">대시보드</button>
+      <button type="button" class="view-btn" data-view="cal" id="view-btn-cal" aria-pressed="false">달력</button>
       <button type="button" class="view-btn" data-view="tree" id="view-btn-tree" aria-pressed="false">트리</button>
     </div>
     <button type="button" class="primary add-open" id="open-add" aria-label="할 일 추가">+ <span class="hide-sm">할 일 </span>추가</button>
@@ -347,7 +414,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         <div id="now-body"><p class="now-empty">할 일을 불러오는 중이에요…</p></div>
       </section>
       <section class="card" aria-labelledby="week-h">
-        <h2 id="week-h" class="label">앞으로 7일</h2>
+        <div class="sec-head"><h2 id="week-h" class="label">앞으로 7일</h2><span class="sec-count">날짜를 누르면 달력으로 가요</span></div>
         <div id="week-body"></div>
       </section>
     </div>
@@ -367,6 +434,30 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       </div>
       <div class="board" id="board"></div>
     </section>
+  </section>
+
+  <section id="view-cal" aria-labelledby="cal-title" hidden>
+    <div class="cal-layout">
+      <div class="cal-main">
+        <div class="cal-head">
+          <h2 class="cal-title" id="cal-title">달력</h2>
+          <div class="cal-nav">
+            <button type="button" class="ghost small" id="cal-prev">‹ 이전 달</button>
+            <button type="button" class="ghost small" id="cal-today">오늘</button>
+            <button type="button" class="ghost small" id="cal-next">다음 달 ›</button>
+          </div>
+        </div>
+        <p class="cal-sum" id="cal-sum"></p>
+        <div class="cal">
+          <div class="cal-wd" aria-hidden="true">
+            <span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+        <p class="cal-note">시행일이 정해진 일만 달력에 보여요. 날짜를 누르면 그날 할 일이 나와요. 방향키로도 날짜를 옮길 수 있어요.</p>
+      </div>
+      <section class="day-panel" id="day-panel" aria-live="polite" aria-label="고른 날의 할 일"></section>
+    </div>
   </section>
 
   <section id="view-tree" aria-labelledby="list-h" hidden>
@@ -464,6 +555,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     tasks: [], ready: false, view: 'dash', tab: 'todo',
     due: null, dueKind: 'none', pri: 2, parent: '',
     panel: null, collapsed: new Set(), boardOpen: new Set(), day: '',
+    calMonth: '', calSel: '', presetDue: null,
   };
   let IX = emptyIndex();
   let store = null;
@@ -939,8 +1031,11 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     state.day = todayISO();
     document.querySelectorAll('.view-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === state.view)));
     $('#view-dash').hidden = state.view !== 'dash';
+    $('#view-cal').hidden = state.view !== 'cal';
     $('#view-tree').hidden = state.view !== 'tree';
-    if (state.view === 'dash') renderDashboard(); else renderList();
+    if (state.view === 'dash') renderDashboard();
+    else if (state.view === 'cal') renderCalendar();
+    else renderList();
     renderParentSelect();
     if (keep) {
       const n = document.getElementById(keep.id);
@@ -1081,15 +1176,17 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       if (k !== null && k >= 0 && k < 7) days[k].n += 1;
     });
     const max = Math.max(1, ...days.map((x) => x.n));
-    const chart = el('div', {
-      class: 'week-chart', role: 'img',
-      'aria-label': '앞으로 7일 동안 날마다 할 일 수: ' + days.map((x) => `${x.d.getMonth() + 1}월 ${x.d.getDate()}일 ${x.n}개`).join(', '),
-    });
+    const chart = el('div', { class: 'week-chart' });
     days.forEach((x, i) => {
       const fill = el('span', { class: 'wk-fill' });
       fill.style.height = x.n ? `${Math.max(6, Math.round((x.n / max) * 100))}%` : '0';
       const wd = x.d.getDay();
-      chart.append(el('div', { class: 'wk-col' + (i === 0 ? ' is-today' : '') + (wd === 6 ? ' is-sat' : '') + (wd === 0 ? ' is-sun' : ''), 'aria-hidden': 'true' },
+      chart.append(el('button', {
+        type: 'button', id: `wk-${x.iso}`,
+        class: 'wk-col' + (i === 0 ? ' is-today' : '') + (wd === 6 ? ' is-sat' : '') + (wd === 0 ? ' is-sun' : ''),
+        'aria-label': `${x.d.getMonth() + 1}월 ${x.d.getDate()}일 ${WD[wd]}요일, 할 일 ${x.n}개. 달력에서 보기`,
+        onclick: () => goToDay(x.iso),
+      },
         el('span', { class: 'wk-n' + (x.n ? '' : ' is-zero'), text: state.ready ? String(x.n) : '–' }),
         el('span', { class: 'wk-bar' }, fill),
         el('span', { class: 'wk-d', text: i === 0 ? '오늘' : WD[wd] }),
@@ -1212,6 +1309,159 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       box.append(col);
     }
   }
+
+  /* ----- 달력 ----- */
+  const pad2 = (n) => String(n).padStart(2, '0');
+  function fmtDayLong(s) { const d = parseISO(s); return `${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[d.getDay()]}요일`; }
+  function dayRel(n) {
+    if (n === 0) return '오늘';
+    if (n === 1) return '내일';
+    if (n === -1) return '어제';
+    return n < 0 ? `${-n}일 전` : `${n}일 뒤`;
+  }
+  /* 같은 날 안에서는 안 끝난 일 먼저 → 중요도 → 먼저 적은 순 */
+  function byDayOrder(a, b) {
+    return (Number(!isOpen(a)) - Number(!isOpen(b)))
+      || (rootOf(a).priority - rootOf(b).priority)
+      || String(a.created).localeCompare(String(b.created))
+      || a.id.localeCompare(b.id);
+  }
+  function chipTone(t) {
+    if (!isOpen(t)) return ' done';
+    const n = daysUntil(t.due);
+    if (n < 0) return ' over';
+    return n === 0 ? ' today' : '';
+  }
+  function goToDay(day) {
+    state.view = 'cal';
+    state.panel = null;
+    try { localStorage.setItem(LS_VIEW, 'cal'); } catch (_) {}
+    window.scrollTo(0, 0);
+    selectDay(day, false);
+  }
+  function selectDay(day, focus) {
+    state.calSel = day;
+    state.calMonth = day.slice(0, 8) + '01';
+    requestRender();
+    if (focus) focusId(`cal-${day}`);
+  }
+  function shiftMonth(delta) {
+    const [y, m] = state.calMonth.split('-').map(Number);
+    const key = iso(new Date(y, m - 1 + delta, 1));
+    const today = todayISO();
+    state.calMonth = key;
+    state.calSel = today.slice(0, 8) + '01' === key ? today : key;
+    requestRender();
+  }
+  function renderCalendar() {
+    const [y, m] = state.calMonth.split('-').map(Number);
+    const first = new Date(y, m - 1, 1);
+    const last = new Date(y, m, 0);
+    const cells = Math.ceil((first.getDay() + last.getDate()) / 7) * 7;
+    const today = todayISO();
+    $('#cal-title').textContent = `${y}년 ${m}월`;
+    const byDay = new Map();
+    for (const t of state.tasks) {
+      if (!t.due || archivedPath(t)) continue;
+      if (!byDay.has(t.due)) byDay.set(t.due, []);
+      byDay.get(t.due).push(t);
+    }
+    const monthKey = `${y}-${pad2(m)}-`;
+    const inMonth = state.tasks.filter((t) => t.due && t.due.startsWith(monthKey) && !archivedPath(t));
+    const mDone = inMonth.filter((t) => !isOpen(t)).length;
+    const mOver = inMonth.filter((t) => isOpen(t) && daysUntil(t.due) < 0).length;
+    $('#cal-sum').textContent = !state.ready ? '불러오는 중이에요…'
+      : inMonth.length ? `${m}월에 시행일이 잡힌 일 ${inMonth.length}개 · 끝낸 일 ${mDone}개${mOver ? ` · 지난 일 ${mOver}개` : ''}`
+      : `${m}월에는 시행일이 잡힌 일이 없어요.`;
+    const grid = $('#cal-grid');
+    grid.replaceChildren();
+    for (let i = 0; i < cells; i++) {
+      const d = new Date(y, m - 1, 1 - first.getDay() + i);
+      const key = iso(d);
+      const wd = d.getDay();
+      const list = (byDay.get(key) || []).slice().sort(byDayOrder);
+      const openN = list.filter(isOpen).length;
+      const doneN = list.length - openN;
+      const cls = ['cal-day'];
+      if (d.getMonth() !== m - 1) cls.push('is-out');
+      if (key === today) cls.push('is-today');
+      if (key === state.calSel) cls.push('is-sel');
+      if (wd === 0) cls.push('is-sun');
+      if (wd === 6) cls.push('is-sat');
+      let chips = null, dots = null;
+      if (list.length) {
+        chips = el('span', { class: 'cal-chips' });
+        list.slice(0, 3).forEach((t) => chips.append(el('span', { class: 'cal-chip' + chipTone(t) + (liveKids(t).length ? ' theme' : ''), text: t.title })));
+        if (list.length > 3) chips.append(el('span', { class: 'cal-chip-more', text: `+${list.length - 3}개 더` }));
+        dots = el('span', { class: 'cal-dots' });
+        list.slice(0, 4).forEach((t) => dots.append(el('span', { class: 'dot' + chipTone(t) })));
+        if (list.length > 4) dots.append(el('span', { class: 'cal-more-n', text: `+${list.length - 4}` }));
+      }
+      let label = `${fmtDayLong(key)}, 할 일 ${openN}개`;
+      if (doneN) label += `, 끝낸 일 ${doneN}개`;
+      grid.append(el('button', {
+        type: 'button', class: cls.join(' '), id: `cal-${key}`, 'data-day': key,
+        'aria-pressed': String(key === state.calSel), 'aria-label': label,
+        onclick: () => selectDay(key, false),
+      }, el('span', { class: 'cal-num', text: String(d.getDate()) }), chips, dots));
+    }
+    renderDayPanel(byDay);
+  }
+  function dayItem(t, inherited) {
+    const crumb = crumbText(t);
+    const open = isOpen(t);
+    const kids = liveKids(t);
+    const meta = el('p', { class: 'row-meta' });
+    const n = daysUntil(effDue(t).due);
+    if (open && n !== null && n < 0) meta.append(el('span', { class: 'pill danger', text: whenLabel(n) }));
+    if (kids.length) meta.append(el('span', { class: 'date', text: `세부 ${kids.filter((c) => c.done).length}/${kids.length}` }));
+    if (!parentOf(t)) meta.append(el('span', { class: `pri p${t.priority}`, text: `중요도 ${PRI[t.priority]}` }));
+    if (inherited) meta.append(el('span', { class: 'date', text: '상위 항목 날짜를 따름' }));
+    meta.append(el('button', { type: 'button', class: 'link-add', id: `dgo-${t.id}`, text: '트리에서 보기', onclick: () => goToNode(t.id) }));
+    return el('li', { class: 'mini' + (open ? '' : ' is-done') },
+      checkEl(t, 'cd'),
+      el('div', { class: 'mini-main' },
+        crumb ? el('p', { class: 'crumb', text: `${crumb} ›` }) : null,
+        el('p', { class: 'mini-title', text: t.title }),
+        meta));
+  }
+  function renderDayPanel(byDay) {
+    const box = $('#day-panel');
+    box.replaceChildren();
+    const day = state.calSel;
+    const own = (byDay.get(day) || []).slice().sort(byDayOrder);
+    const inherited = state.tasks.filter((t) => !t.due && isOpen(t) && effDue(t).due === day).sort(byUrgency);
+    const ownOpen = own.filter(isOpen).length;
+    const ownDone = own.length - ownOpen;
+    box.append(el('div', null,
+      el('h3', { class: 'day-title', text: fmtDayLong(day) }),
+      el('p', {
+        class: 'day-sub',
+        text: !state.ready ? '불러오는 중이에요…'
+          : `${dayRel(daysUntil(day))} · 할 일 ${ownOpen + inherited.length}개${ownDone ? ` · 끝낸 일 ${ownDone}개` : ''}`,
+      })));
+    if (state.ready) {
+      if (own.length) box.append(el('ul', { class: 'mini-list' }, ...own.map((t) => dayItem(t, false))));
+      if (inherited.length) {
+        box.append(el('p', { class: 'tc-sub', text: '상위 항목 날짜를 따르는 일' }),
+          el('ul', { class: 'mini-list' }, ...inherited.map((t) => dayItem(t, true))));
+      }
+      if (!own.length && !inherited.length) box.append(el('p', { class: 'day-empty', text: '이 날에 정해진 할 일이 없어요.' }));
+    }
+    box.append(el('button', { type: 'button', class: 'primary small', id: 'day-add', text: '+ 이 날에 할 일 추가', onclick: () => openAddDialog('', day) }));
+  }
+  $('#cal-prev').addEventListener('click', () => shiftMonth(-1));
+  $('#cal-next').addEventListener('click', () => shiftMonth(1));
+  $('#cal-today').addEventListener('click', () => selectDay(todayISO(), true));
+  $('#cal-grid').addEventListener('keydown', (e) => {
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
+    const cell = e.target.closest('.cal-day');
+    if (!step || !cell) return;
+    e.preventDefault();
+    const d = parseISO(cell.dataset.day);
+    d.setDate(d.getDate() + step);
+    selectDay(iso(d), true);
+  });
 
   /* ----- 트리 화면 ----- */
   function treeMeta(t, depth, kids) {
@@ -1465,10 +1715,20 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     parentSig = null;
     renderParentSelect();
   }
-  function openAddDialog(parentId) {
+  function setDueDate(v) {
+    if (!v) { pickDue('none'); return; }
+    if (v === todayISO()) { pickDue('today'); return; }
+    if (v === addDays(1)) { pickDue('tomorrow'); return; }
+    state.due = v;
+    state.dueKind = 'custom';
+    $('#due-date').value = v;
+    paintForm();
+  }
+  function openAddDialog(parentId, due) {
     setParentChoice(parentId || '');
     if (!parentId) state.pri = 2;
-    pickDue('none');
+    state.presetDue = validISO(due) || null;
+    setDueDate(state.presetDue);
     $('#form-msg').replaceChildren();
     if (typeof dlg.showModal === 'function') { if (!dlg.open) dlg.showModal(); }
     else dlg.setAttribute('open', '');
@@ -1526,7 +1786,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       state.pri = 2;
     }
     input.value = '';
-    pickDue('none');
+    setDueDate(state.presetDue);
     input.focus();
   });
 
@@ -1573,7 +1833,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
 
   try {
     const v = localStorage.getItem(LS_VIEW);
-    if (v === 'dash' || v === 'tree') state.view = v;
+    if (v === 'dash' || v === 'cal' || v === 'tree') state.view = v;
     const saved = localStorage.getItem(LS_TAB);
     if (saved === 'todo' || saved === 'done' || saved === 'archived') state.tab = saved;
   } catch (_) {}
@@ -1581,6 +1841,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const c = JSON.parse(localStorage.getItem(LS_COLLAPSED) || '[]');
     if (Array.isArray(c)) c.forEach((id) => { if (typeof id === 'string') state.collapsed.add(id); });
   } catch (_) {}
+  state.calSel = todayISO();
+  state.calMonth = state.calSel.slice(0, 8) + '01';
   pickDue('none');
   render();
   connect();
