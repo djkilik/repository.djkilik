@@ -21,6 +21,8 @@
   --warn: #965800;
   --warn-soft: #FBEED3;
   --ok: #2B7A4B;
+  --cat-1: #2F7D5B; --cat-2: #C2621B; --cat-3: #7A4FC9; --cat-4: #1F8A9A;
+  --cat-5: #C2417A; --cat-6: #8A6D1F; --cat-7: #3B63C4; --cat-8: #6B7280;
   --f-display: "Black Han Sans", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
   --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -32,6 +34,8 @@
     --line: #2B3546; --accent: #88A7FF; --accent-ink: #0B1222; --accent-soft: #1F2B4A;
     --mark: #6E5C14; --danger: #FF8C82; --danger-soft: #3B1E1D; --warn: #F2B65C;
     --warn-soft: #362913; --ok: #76CF99;
+    --cat-1: #6FCF9F; --cat-2: #F2A25C; --cat-3: #B194F2; --cat-4: #5CC8D6;
+    --cat-5: #F08DB5; --cat-6: #D2B35A; --cat-7: #8FAEFF; --cat-8: #A5ADBA;
     color-scheme: dark;
   }
 }
@@ -40,6 +44,8 @@
   --line: #2B3546; --accent: #88A7FF; --accent-ink: #0B1222; --accent-soft: #1F2B4A;
   --mark: #6E5C14; --danger: #FF8C82; --danger-soft: #3B1E1D; --warn: #F2B65C;
   --warn-soft: #362913; --ok: #76CF99;
+  --cat-1: #6FCF9F; --cat-2: #F2A25C; --cat-3: #B194F2; --cat-4: #5CC8D6;
+  --cat-5: #F08DB5; --cat-6: #D2B35A; --cat-7: #8FAEFF; --cat-8: #A5ADBA;
   color-scheme: dark;
 }
 
@@ -309,6 +315,34 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
 .day-panel > .primary { justify-self: start; }
 .mini.is-done .mini-title { text-decoration: line-through; color: var(--muted); }
 
+/* 카테고리 */
+.cat-c1 { --cat: var(--cat-1); } .cat-c2 { --cat: var(--cat-2); } .cat-c3 { --cat: var(--cat-3); } .cat-c4 { --cat: var(--cat-4); }
+.cat-c5 { --cat: var(--cat-5); } .cat-c6 { --cat: var(--cat-6); } .cat-c7 { --cat: var(--cat-7); } .cat-c8 { --cat: var(--cat-8); }
+.cat-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--ink); white-space: nowrap; }
+.cat-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--cat, var(--muted)); flex: none; }
+.chip .cat-dot { margin-right: 6px; vertical-align: 1px; }
+.chip.is-suggest { border-style: dashed; }
+.catbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.catbar-label { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--muted); }
+.cal-chip.has-cat { box-shadow: inset 3px 0 0 var(--cat); padding-left: 8px; }
+#cat-new {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 16px;
+  padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--bg); color: var(--ink);
+}
+#cat-new::placeholder { color: var(--muted); }
+
+/* 삭제 */
+.btn-danger { background: var(--danger); color: var(--surface); border: 0; border-radius: var(--r); padding: 10px 16px; font-weight: 700; }
+.danger-text, .link-add.danger-text { color: var(--danger); }
+.row-actions { flex: none; display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.sheet.confirm .sheet-inner { gap: 12px; }
+.confirm-body { margin: 0; font-size: 15px; line-height: 1.6; }
+.confirm-note { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.55; }
+.confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+@media (min-width: 641px) { .sheet.confirm { width: min(440px, calc(100% - 32px)); } }
+@media (max-width: 640px) { .confirm-actions > button { flex: 1 1 auto; } }
+
 /* 할 일 트리 */
 .list-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .list-head .label { margin: 0; }
@@ -400,6 +434,11 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
 </header>
 
 <main class="wrap">
+  <div class="catbar" id="catbar" hidden>
+    <span class="catbar-label" id="catbar-label">카테고리</span>
+    <div class="chip-row" id="cat-chips" role="group" aria-labelledby="catbar-label"></div>
+  </div>
+
   <section id="view-dash" aria-label="대시보드">
     <div class="dash-head">
       <p class="eyebrow" id="today-label">오늘</p>
@@ -480,7 +519,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   <footer class="foot">
     <p id="save-note">저장 위치를 확인하는 중이에요…</p>
     <p>큰 테마 아래에 세부 할 일을 넣으려면 '+ 추가'에서 '넣을 곳'을 고르거나, 트리 화면에서 '+ 세부'나 ⋯ 메뉴를 쓰세요.</p>
-    <p>할 일은 지워지지 않아요. '보관'하면 보관함으로 옮겨지고, 언제든 되돌릴 수 있어요.</p>
+    <p>'보관'은 목록에서 숨기기만 해서 언제든 되돌릴 수 있어요. '삭제'는 한 번 더 물어본 뒤에 지우고, 지운 직후 잠깐 동안 '되돌리기'로 복구할 수 있어요.</p>
   </footer>
 </main>
 
@@ -498,6 +537,12 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         <select id="parent-select" name="parent-select">
           <option value="">맨 위 (새 큰 테마나 할 일)</option>
         </select>
+      </div>
+      <div class="field" id="cat-field">
+        <span class="field-label" id="cat-label">카테고리 (큰 테마·맨 위 항목에 달아요)</span>
+        <div class="chip-row" id="cat-pick" role="group" aria-labelledby="cat-label"></div>
+        <label for="cat-new" class="sr">새 카테고리</label>
+        <input id="cat-new" name="cat-new" type="text" maxlength="20" placeholder="새 카테고리 직접 적기 (예: 업무)">
       </div>
       <fieldset id="due-chips">
         <legend>시행일</legend>
@@ -529,6 +574,19 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   </div>
 </dialog>
 
+<dialog class="sheet confirm" id="confirm-dialog" aria-labelledby="confirm-h" aria-describedby="confirm-body">
+  <div class="sheet-inner">
+    <h2 class="sheet-title" id="confirm-h">정말 삭제할까요?</h2>
+    <p class="confirm-body" id="confirm-body"></p>
+    <p class="confirm-note" id="confirm-note"></p>
+    <div class="confirm-actions">
+      <button type="button" class="ghost" id="confirm-no">취소</button>
+      <button type="button" class="ghost" id="confirm-alt">대신 보관하기</button>
+      <button type="button" class="btn-danger" id="confirm-yes">삭제하기</button>
+    </div>
+  </div>
+</dialog>
+
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script>
@@ -538,6 +596,9 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   const LS_TAB = 'todo-compass.tab';
   const LS_VIEW = 'todo-compass.view';
   const LS_COLLAPSED = 'todo-compass.collapsed';
+  const LS_CAT = 'todo-compass.category-filter';
+  const NONE_CAT = '__none__';
+  const DEFAULT_CATS = ['업무', '개인', '공부', '건강', '집안일', '약속'];
   const WD = ['일', '월', '화', '수', '목', '금', '토'];
   const PRI = { 1: '높음', 2: '보통', 3: '낮음' };
   const FIVE_MIN = 5 * 60 * 1000;
@@ -556,9 +617,12 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     due: null, dueKind: 'none', pri: 2, parent: '',
     panel: null, collapsed: new Set(), boardOpen: new Set(), day: '',
     calMonth: '', calSel: '', presetDue: null,
+    cat: '', catDraft: '',
   };
   let IX = emptyIndex();
   let store = null;
+  let rawById = new Map();
+  let pendingDelete = null;
   let parentSig = null;
   let composing = false;
   let pendingRender = false;
@@ -678,6 +742,50 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     return { due: null, inherited: false };
   }
   const crumbText = (t) => ancestors(t).map((a) => a.title).join(' › ');
+
+  /* ---------- 카테고리 (맨 위 항목에 달고, 세부 할 일은 그것을 따름) ---------- */
+  function cleanCat(v) {
+    const s = String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, 20);
+    return s || null;
+  }
+  function catColor(name) {
+    let h = 0;
+    for (const ch of name) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+    return (h % 8) + 1;
+  }
+  function allCategories() {
+    const count = new Map();
+    for (const r of IX.roots) {
+      if (r.archived || !r.category) continue;
+      count.set(r.category, (count.get(r.category) || 0) + 1);
+    }
+    return [...count.keys()].sort((a, b) => (count.get(b) - count.get(a)) || a.localeCompare(b, 'ko'));
+  }
+  function inCat(t) {
+    if (!state.cat) return true;
+    const c = rootOf(t).category;
+    return state.cat === NONE_CAT ? !c : c === state.cat;
+  }
+  function catTag(name) {
+    return el('span', { class: `cat-tag cat-c${catColor(name)}` }, el('span', { class: 'cat-dot', 'aria-hidden': 'true' }), name);
+  }
+  const catTagFor = (t) => { const c = rootOf(t).category; return c ? catTag(c) : null; };
+  const catClass = (t) => { const c = rootOf(t).category; return c ? ` has-cat cat-c${catColor(c)}` : ''; };
+  /* 카테고리와 위치(상위 항목)를 한 줄로 */
+  function crumbEl(t) {
+    const crumb = crumbText(t);
+    const c = rootOf(t).category;
+    if (!crumb && !c) return null;
+    return el('p', { class: 'crumb' },
+      c ? catTag(c) : null,
+      c && crumb ? ' · ' : null,
+      crumb ? `${crumb} ›` : null);
+  }
+  function catChoices() {
+    const cats = allCategories();
+    const extra = DEFAULT_CATS.filter((c) => !cats.includes(c)).slice(0, Math.max(0, 6 - cats.length));
+    return { list: [...cats, ...extra], suggested: new Set(extra) };
+  }
   /* 시행일이 가까운 순 → 중요도(맨 위 항목 기준) 높은 순 → 먼저 적은 순 */
   function byUrgency(a, b) {
     const la = daysUntil(effDue(a).due), lb = daysUntil(effDue(b).due);
@@ -726,6 +834,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       created: str(d.created) || '',
       doneAt: str(d.doneAt),
       archivedAt: str(d.archivedAt),
+      category: cleanCat(d.category),
     };
   }
   const newId = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -798,6 +907,19 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         if (r) Object.assign(r, fields);
         persist();
       },
+      async remove(id) {
+        const i = raw.findIndex((x) => String(x.id) === id);
+        if (i >= 0) raw.splice(i, 1);
+        persist();
+      },
+      async restore(id, data) {
+        if (!raw.some((x) => String(x.id) === id)) raw.push(JSON.parse(JSON.stringify(data)));
+        persist();
+      },
+      rawOf(id) {
+        const r = raw.find((x) => String(x.id) === id);
+        return r ? JSON.parse(JSON.stringify(r)) : null;
+      },
     };
     setTasks(raw.map((x) => normalize(x.id, x)));
     state.ready = true;
@@ -825,9 +947,13 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     store = {
       create: (t) => retryOnce(() => col.doc(t.id).set(t)),
       patch: (id, fields) => retryOnce(() => col.doc(id).update(fields)),
+      remove: (id) => retryOnce(() => col.doc(id).delete()),
+      restore: (id, data) => retryOnce(() => col.doc(id).set(data)),
+      rawOf: (id) => { const r = rawById.get(id); return r ? JSON.parse(JSON.stringify(r)) : null; },
     };
     col.onSnapshot((snap) => {
       if (!snap.metadata.fromCache) clearTimeout(slow);
+      rawById = new Map(snap.docs.map((d) => [d.id, d.data() || {}]));
       setTasks(snap.docs.map((d) => normalize(d.id, d.data() || {})));
       state.ready = true;
       setNote('내 계정에 저장돼요. 나만 볼 수 있고, 휴대폰과 컴퓨터 어디서 열어도 같은 목록이 보여요.');
@@ -841,8 +967,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   }
 
   /* ---------- 동작 ---------- */
-  function addTask({ title, due = null, priority = 2, parentId = null }) {
-    const t = normalize(newId(), { title, due, priority, parentId, created: new Date().toISOString() });
+  function addTask({ title, due = null, priority = 2, parentId = null, category = null }) {
+    const t = normalize(newId(), { title, due, priority, parentId, category, created: new Date().toISOString() });
     commitCreate(t);
     return t;
   }
@@ -884,15 +1010,60 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       toast(`'${short(t.title)}' 제자리로 되돌렸어요.`);
     }
   }
+  /* ---------- 삭제: 한 번 더 물어본 뒤에만 지우고, 잠깐 동안 되돌릴 수 있게 ---------- */
+  const cdlg = $('#confirm-dialog');
+  function askDelete(t) {
+    const cur = IX.byId.get(t.id) || t;
+    const sub = descendants(cur);
+    pendingDelete = cur.id;
+    $('#confirm-body').replaceChildren(
+      el('b', { text: `'${cur.title}'` }),
+      sub.length ? ` 항목과 그 아래 세부 할 일 ${sub.length}개가 함께 삭제돼요.` : ' 항목이 삭제돼요.');
+    $('#confirm-note').textContent = '삭제하면 대시보드·달력·트리에서 모두 사라져요. 지운 직후 알림의 \'되돌리기\'로만 복구할 수 있어요.'
+      + (cur.archived ? '' : " 지우지 않고 목록에서 숨기기만 하려면 '대신 보관하기'를 누르세요.");
+    $('#confirm-alt').hidden = !!cur.archived;
+    if (typeof cdlg.showModal === 'function') { if (!cdlg.open) cdlg.showModal(); }
+    else cdlg.setAttribute('open', '');
+    setTimeout(() => $('#confirm-no').focus(), 0);
+  }
+  function closeConfirm() {
+    pendingDelete = null;
+    if (typeof cdlg.close === 'function') { if (cdlg.open) cdlg.close(); }
+    else cdlg.removeAttribute('open');
+  }
+  function doDelete(id) {
+    const t = IX.byId.get(id);
+    if (!t || !store) return;
+    const ids = [t.id, ...descendants(t).map((d) => d.id)];
+    const gone = new Set(ids);
+    const backup = ids.map((x) => ({ id: x, raw: store.rawOf(x) || { ...IX.byId.get(x) } }));
+    if (timer.taskId && gone.has(timer.taskId)) stopTimer();
+    if (state.panel && gone.has(state.panel.id)) state.panel = null;
+    setTasks(state.tasks.filter((x) => !gone.has(x.id)));
+    requestRender();
+    ids.forEach((x) => queue(x, () => store.remove(x)));
+    const title = short(t.title);
+    toast(ids.length > 1 ? `'${title}' 항목과 세부 할 일 ${ids.length - 1}개를 삭제했어요.` : `'${title}' 삭제했어요.`,
+      { label: '되돌리기', run: () => restoreDeleted(backup) }, 10000);
+  }
+  function restoreDeleted(backup) {
+    for (const { id, raw } of backup) {
+      upsert(normalize(id, raw));
+      queue(id, () => store.restore(id, raw));
+    }
+    requestRender();
+    toast('삭제를 되돌렸어요.');
+  }
+
   function addExamples() {
     if (!store) return;
-    const theme = addTask({ title: '(예시) 이사 준비', due: addDays(5), priority: 1 });
+    const theme = addTask({ title: '(예시) 이사 준비', due: addDays(5), priority: 1, category: '생활' });
     addTask({ title: '(예시) 인터넷 이전 신청', due: todayISO(), parentId: theme.id });
     addTask({ title: '(예시) 짐 싸기', due: addDays(2), parentId: theme.id });
     const step = addTask({ title: '(예시) 전입신고', due: addDays(5), parentId: theme.id });
     addTask({ title: '(예시) 신분증 챙기기', parentId: step.id });
-    addTask({ title: '(예시) 밀린 설거지 하기', due: addDays(-1), priority: 2 });
-    addTask({ title: '(예시) 운동 30분', priority: 3 });
+    addTask({ title: '(예시) 밀린 설거지 하기', due: addDays(-1), priority: 2, category: '생활' });
+    addTask({ title: '(예시) 운동 30분', priority: 3, category: '건강' });
     toast('예시를 넣었어요. 다 본 뒤 트리 화면의 ⋯ 메뉴에서 보관하세요.');
   }
   /* 대시보드에서 트리의 그 항목으로 바로 이동 */
@@ -932,7 +1103,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   }
   function openEdit(t) {
     const p = parentOf(t);
-    state.panel = { type: 'edit', id: t.id, draft: { title: t.title, due: t.due, pri: t.priority, parent: p ? p.id : '', msg: '' } };
+    state.panel = { type: 'edit', id: t.id, draft: { title: t.title, due: t.due, pri: t.priority, parent: p ? p.id : '', category: t.category || '', msg: '' } };
     requestRender();
     focusId('panel-title');
   }
@@ -967,6 +1138,10 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       if (newParent) { state.collapsed.delete(newParent); saveCollapsed(); }
     }
     if (!newParent && d.pri !== cur.priority) fields.priority = d.pri;
+    if (!newParent) {
+      const cat = cleanCat(d.category);
+      if (cat !== cur.category) fields.category = cat;
+    }
     state.panel = null;
     if (Object.keys(fields).length) {
       commitPatch(cur, fields);
@@ -1029,6 +1204,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const keep = ae && ae.id && ae !== document.body
       ? { id: ae.id, s: selPos(ae, 'selectionStart'), e: selPos(ae, 'selectionEnd') } : null;
     state.day = todayISO();
+    renderCatBar();
     document.querySelectorAll('.view-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === state.view)));
     $('#view-dash').hidden = state.view !== 'dash';
     $('#view-cal').hidden = state.view !== 'cal';
@@ -1046,9 +1222,32 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     }
   }
 
+  /* ----- 카테고리 고르기 막대 (모든 화면에 함께 적용) ----- */
+  function renderCatBar() {
+    const bar = $('#catbar');
+    if (!state.ready) { bar.hidden = true; return; }
+    const cats = allCategories();
+    const hasNone = IX.roots.some((r) => !r.archived && !r.category);
+    if (state.cat && state.cat !== NONE_CAT && !cats.includes(state.cat)) state.cat = '';
+    if (state.cat === NONE_CAT && (!hasNone || !cats.length)) state.cat = '';
+    if (!cats.length) { bar.hidden = true; return; }
+    const chip = (label, value, id, color) => el('button', {
+      type: 'button', class: 'chip small', id, 'aria-pressed': String(state.cat === value),
+      onclick: () => {
+        state.cat = value;
+        try { localStorage.setItem(LS_CAT, value); } catch (_) {}
+        requestRender();
+      },
+    }, color ? el('span', { class: `cat-dot cat-c${color}`, 'aria-hidden': 'true' }) : null, label);
+    const chips = [chip('전체', '', 'catf-all', 0), ...cats.map((c, i) => chip(c, c, `catf-${i}`, catColor(c)))];
+    if (hasNone) chips.push(chip('카테고리 없음', NONE_CAT, 'catf-none', 0));
+    $('#cat-chips').replaceChildren(...chips);
+    bar.hidden = false;
+  }
+
   /* ----- 대시보드 ----- */
   function renderDashboard() {
-    const act = state.ready ? state.tasks.filter(isActionable) : [];
+    const act = state.ready ? state.tasks.filter(isActionable).filter(inCat) : [];
     renderSummary(act);
     renderNow();
     renderWeek(act);
@@ -1064,13 +1263,14 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   }
   function renderSummary(act) {
     const now = new Date();
-    $('#today-label').textContent = `${now.getMonth() + 1}월 ${now.getDate()}일 ${WD[now.getDay()]}요일`;
+    const catNote = !state.cat ? '' : state.cat === NONE_CAT ? ' · 카테고리 없는 일만 보는 중' : ` · '${state.cat}'만 보는 중`;
+    $('#today-label').textContent = `${now.getMonth() + 1}월 ${now.getDate()}일 ${WD[now.getDay()]}요일${catNote}`;
     const c = { over: 0, today: 0, tomorrow: 0, week: 0, later: 0, none: 0 };
     act.forEach((t) => { c[bucketOf(t)] += 1; });
     const in7 = c.today + c.tomorrow + c.week;
-    const themes = IX.roots.filter((t) => !t.done && !t.archived && liveKids(t).length).length;
-    const doneToday = state.tasks.filter((t) => t.done && localDay(t.doneAt) === state.day).length;
-    const pool = state.tasks.filter((t) => !archivedPath(t));
+    const themes = IX.roots.filter((t) => !t.done && !t.archived && liveKids(t).length && inCat(t)).length;
+    const doneToday = state.tasks.filter((t) => t.done && localDay(t.doneAt) === state.day && inCat(t)).length;
+    const pool = state.tasks.filter((t) => !archivedPath(t) && inCat(t));
     const doneAll = pool.filter((t) => t.done).length;
     const pct = pool.length ? Math.round((doneAll / pool.length) * 100) : 0;
     const v = (n) => (state.ready ? String(n) : '–');
@@ -1088,6 +1288,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const s = $('#summary');
     if (!state.ready) s.textContent = '할 일을 불러오는 중이에요…';
     else if (!state.tasks.length) s.textContent = '아직 적어 둔 할 일이 없어요. 위의 + 추가로 시작해 보세요.';
+    else if (state.cat && !pool.length) s.textContent = '이 카테고리에는 아직 할 일이 없어요.';
     else if (c.over || c.today) {
       const parts = [];
       if (c.today) parts.push(`오늘 할 일 ${c.today}개`);
@@ -1107,12 +1308,13 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       body.append(el('p', { class: 'now-empty', text: '할 일을 불러오는 중이에요…' }));
       return;
     }
-    const act = state.tasks.filter(isActionable).sort(byUrgency);
-    if (timer.taskId && !act.some((t) => t.id === timer.taskId)) stopTimer();
+    const allAct = state.tasks.filter(isActionable);
+    if (timer.taskId && !allAct.some((t) => t.id === timer.taskId)) stopTimer();
+    const act = allAct.filter(inCat).sort(byUrgency);
     if (!act.length) {
       const fresh = !state.tasks.length;
       body.append(
-        el('p', { class: 'now-title', text: fresh ? '아직 적어 둔 할 일이 없어요.' : '남은 할 일이 없어요. 잘했어요!' }),
+        el('p', { class: 'now-title', text: fresh ? '아직 적어 둔 할 일이 없어요.' : state.cat ? '이 카테고리에는 남은 할 일이 없어요.' : '남은 할 일이 없어요. 잘했어요!' }),
         el('p', { class: 'tip', text: fresh ? '+ 추가로 할 일을 적으면 무엇부터 할지 여기에서 골라 드려요.' : '새로 할 일이 생기면 + 추가로 적어 두세요.' }),
         el('div', { class: 'now-actions' },
           el('button', { type: 'button', class: 'primary', id: 'now-add', text: '+ 할 일 추가', onclick: () => openAddDialog('') }),
@@ -1130,6 +1332,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       el('p', { class: 'now-meta' },
         el('span', { class: `pill ${whenTone(n)}`, text: whenLabel(n) }),
         eff.due ? el('span', { class: 'date', text: fmtDate(eff.due) + (eff.inherited ? ' · 상위 항목 날짜' : '') }) : null,
+        catTagFor(focus),
         el('span', { class: `pri p${rootOf(focus).priority}`, text: `중요도 ${PRI[rootOf(focus).priority]}` })));
     const actions = el('div', { class: 'now-actions' });
     if (running) {
@@ -1236,6 +1439,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
         el('h3', { class: 'tc-title', text: th.title }),
         over ? el('span', { class: 'pill danger', text: `지난 일 ${over}` }) : null),
       el('p', { class: 'tc-meta' },
+        th.category ? catTag(th.category) : null,
         el('span', { class: `pill ${whenTone(n)}`, text: whenLabel(n) }),
         th.due ? el('span', { class: 'date', text: fmtDate(th.due) }) : null,
         el('span', { class: `pri p${th.priority}`, text: `중요도 ${PRI[th.priority]}` })),
@@ -1258,11 +1462,15 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   function renderThemes(act) {
     const box = $('#themes');
     box.replaceChildren();
-    const themes = IX.roots.filter((t) => !t.done && !t.archived && liveKids(t).length).sort(byUrgency);
+    const themes = IX.roots.filter((t) => !t.done && !t.archived && liveKids(t).length && inCat(t)).sort(byUrgency);
     $('#themes-count').textContent = state.ready && themes.length ? `${themes.length}개` : '';
     if (!state.ready) { box.append(emptyBox(el('p', { text: '불러오는 중이에요…' }))); return; }
     if (!themes.length) {
-      box.append(emptyBox(el('p', { text: '세부 할 일이 있는 큰 테마가 아직 없어요. 할 일을 추가하고 그 아래에 세부 할 일을 넣으면 여기에 진행률 카드가 생겨요.' })));
+      box.append(emptyBox(el('p', {
+        text: state.cat
+          ? '이 카테고리에는 세부 할 일이 있는 큰 테마가 없어요.'
+          : '세부 할 일이 있는 큰 테마가 아직 없어요. 할 일을 추가하고 그 아래에 세부 할 일을 넣으면 여기에 진행률 카드가 생겨요.',
+      })));
       return;
     }
     themes.forEach((th) => box.append(themeCard(th, act)));
@@ -1271,14 +1479,13 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   function boardItem(t, bucket) {
     const eff = effDue(t);
     const n = daysUntil(eff.due);
-    const crumb = crumbText(t);
     let tail = null;
     if (bucket === 'over') tail = el('span', { class: 'pill danger', text: whenLabel(n) });
     else if (eff.due && bucket !== 'today') tail = el('span', { class: 'date', text: fmtDate(eff.due) });
     return el('li', { class: 'mini' },
       checkEl(t, 'bd'),
       el('div', { class: 'mini-main' },
-        crumb ? el('p', { class: 'crumb', text: `${crumb} ›` }) : null,
+        crumbEl(t),
         el('p', { class: 'mini-title', text: t.title }),
         eff.inherited && eff.due ? el('p', { class: 'mini-note', text: '상위 항목 날짜를 따름' }) : null),
       tail);
@@ -1362,12 +1569,12 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     $('#cal-title').textContent = `${y}년 ${m}월`;
     const byDay = new Map();
     for (const t of state.tasks) {
-      if (!t.due || archivedPath(t)) continue;
+      if (!t.due || archivedPath(t) || !inCat(t)) continue;
       if (!byDay.has(t.due)) byDay.set(t.due, []);
       byDay.get(t.due).push(t);
     }
     const monthKey = `${y}-${pad2(m)}-`;
-    const inMonth = state.tasks.filter((t) => t.due && t.due.startsWith(monthKey) && !archivedPath(t));
+    const inMonth = state.tasks.filter((t) => t.due && t.due.startsWith(monthKey) && !archivedPath(t) && inCat(t));
     const mDone = inMonth.filter((t) => !isOpen(t)).length;
     const mOver = inMonth.filter((t) => isOpen(t) && daysUntil(t.due) < 0).length;
     $('#cal-sum').textContent = !state.ready ? '불러오는 중이에요…'
@@ -1391,7 +1598,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       let chips = null, dots = null;
       if (list.length) {
         chips = el('span', { class: 'cal-chips' });
-        list.slice(0, 3).forEach((t) => chips.append(el('span', { class: 'cal-chip' + chipTone(t) + (liveKids(t).length ? ' theme' : ''), text: t.title })));
+        list.slice(0, 3).forEach((t) => chips.append(el('span', { class: 'cal-chip' + chipTone(t) + (liveKids(t).length ? ' theme' : '') + catClass(t), text: t.title })));
         if (list.length > 3) chips.append(el('span', { class: 'cal-chip-more', text: `+${list.length - 3}개 더` }));
         dots = el('span', { class: 'cal-dots' });
         list.slice(0, 4).forEach((t) => dots.append(el('span', { class: 'dot' + chipTone(t) })));
@@ -1408,7 +1615,6 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     renderDayPanel(byDay);
   }
   function dayItem(t, inherited) {
-    const crumb = crumbText(t);
     const open = isOpen(t);
     const kids = liveKids(t);
     const meta = el('p', { class: 'row-meta' });
@@ -1418,10 +1624,11 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     if (!parentOf(t)) meta.append(el('span', { class: `pri p${t.priority}`, text: `중요도 ${PRI[t.priority]}` }));
     if (inherited) meta.append(el('span', { class: 'date', text: '상위 항목 날짜를 따름' }));
     meta.append(el('button', { type: 'button', class: 'link-add', id: `dgo-${t.id}`, text: '트리에서 보기', onclick: () => goToNode(t.id) }));
+    meta.append(el('button', { type: 'button', class: 'link-add danger-text', id: `ddel-${t.id}`, text: '삭제', 'aria-label': `'${t.title}' 삭제`, onclick: () => askDelete(t) }));
     return el('li', { class: 'mini' + (open ? '' : ' is-done') },
       checkEl(t, 'cd'),
       el('div', { class: 'mini-main' },
-        crumb ? el('p', { class: 'crumb', text: `${crumb} ›` }) : null,
+        crumbEl(t),
         el('p', { class: 'mini-title', text: t.title }),
         meta));
   }
@@ -1430,7 +1637,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     box.replaceChildren();
     const day = state.calSel;
     const own = (byDay.get(day) || []).slice().sort(byDayOrder);
-    const inherited = state.tasks.filter((t) => !t.due && isOpen(t) && effDue(t).due === day).sort(byUrgency);
+    const inherited = state.tasks.filter((t) => !t.due && isOpen(t) && effDue(t).due === day && inCat(t)).sort(byUrgency);
     const ownOpen = own.filter(isOpen).length;
     const ownDone = own.length - ownOpen;
     box.append(el('div', null,
@@ -1478,6 +1685,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       meta.append(el('span', { class: 'progress', title: `세부 할 일 ${kids.length}개 중 ${done}개 완료` },
         el('span', { class: 'bar', 'aria-hidden': 'true' }, fill), `${done}/${kids.length}`));
     }
+    if (depth === 0 && t.category) meta.prepend(catTag(t.category));
     if (depth === 0) meta.append(el('span', { class: `pri p${t.priority}`, text: `중요도 ${PRI[t.priority]}` }));
     if (depth === 0 && !kids.length && !t.done) {
       meta.append(el('button', { type: 'button', class: 'link-add', id: `la-${t.id}`, 'aria-label': `'${t.title}' 아래에 세부 할 일 추가`, text: '+ 세부', onclick: () => openAdd(t) }));
@@ -1499,6 +1707,22 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       el('input', { type: 'date', id: `${prefix}-date`, value: d.due || '', onchange: (e) => { d.due = validISO(e.target.value); requestRender(); } })));
     return row;
   }
+  /* 트리의 '수정' 칸에서 쓰는 카테고리 고르기 */
+  function catPicker(d) {
+    const cur = cleanCat(d.category);
+    const { list, suggested } = catChoices();
+    const row = el('div', { class: 'chip-row' },
+      el('button', { type: 'button', class: 'chip small', id: 'pe-cat-none', 'aria-pressed': String(!cur), text: '없음', onclick: () => { d.category = ''; requestRender(); } }),
+      ...list.map((c, i) => el('button', {
+        type: 'button', class: 'chip small' + (suggested.has(c) ? ' is-suggest' : ''), id: `pe-cat-${i}`,
+        'aria-pressed': String(cur === c), onclick: () => { d.category = c; requestRender(); },
+      }, el('span', { class: `cat-dot cat-c${catColor(c)}`, 'aria-hidden': 'true' }), c)));
+    const input = el('input', {
+      type: 'text', id: 'pe-cat-new', maxlength: '20', placeholder: '새 카테고리 직접 적기',
+      value: cur && !list.includes(cur) ? cur : '', oninput: (e) => { d.category = e.target.value; },
+    });
+    return [row, input];
+  }
   function priChips(d) {
     const row = el('div', { class: 'chip-row' });
     for (const n of [1, 2, 3]) {
@@ -1514,7 +1738,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     return el('div', { class: 'panel menu' },
       canAdd ? el('button', { type: 'button', class: 'ghost small', id: `pm-add-${t.id}`, text: '+ 세부 할 일 추가', onclick: () => openAdd(t) }) : null,
       el('button', { type: 'button', class: 'ghost small', id: `pm-edit-${t.id}`, text: '수정·옮기기', onclick: () => openEdit(t) }),
-      el('button', { type: 'button', class: 'ghost small', id: `pm-arch-${t.id}`, text: '보관', onclick: () => setArchived(t, true) }));
+      el('button', { type: 'button', class: 'ghost small', id: `pm-arch-${t.id}`, text: '보관', onclick: () => setArchived(t, true) }),
+      el('button', { type: 'button', class: 'ghost small danger-text', id: `pm-del-${t.id}`, text: '삭제', onclick: () => askDelete(t) }));
   }
   function addPanel(p) {
     const d = state.panel.draft;
@@ -1550,12 +1775,15 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
       dateField(d, 'pe'),
       el('label', { class: 'field-label', for: 'pe-parent', text: '위치 (어느 항목 아래에 둘지)' }),
       sel,
+      rootAfter ? el('span', { class: 'field-label', text: '카테고리' }) : null,
+      ...(rootAfter ? catPicker(d) : []),
       rootAfter ? el('span', { class: 'field-label', text: '중요도' }) : null,
       rootAfter ? priChips(d) : null,
       el('p', { class: 'panel-msg', role: 'status', text: d.msg || '' }),
       el('div', { class: 'panel-actions' },
         el('button', { type: 'submit', class: 'primary small', id: 'pe-save', text: '저장' }),
-        el('button', { type: 'button', class: 'ghost small', id: 'pe-cancel', text: '취소', onclick: closePanel })));
+        el('button', { type: 'button', class: 'ghost small', id: 'pe-cancel', text: '취소', onclick: closePanel }),
+        el('button', { type: 'button', class: 'ghost small danger-text', id: 'pe-del', text: '삭제', onclick: () => askDelete(t) })));
   }
   function nodeEl(t, depth) {
     const kids = liveKids(t).sort(byUrgency);
@@ -1596,7 +1824,6 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   }
   /* 완료·보관함 탭의 한 줄 */
   function flatRow(t, mode) {
-    const crumb = crumbText(t);
     const inside = descendants(t).filter((d) => !d.archived || mode === 'archived').length;
     const meta = el('p', { class: 'row-meta' });
     if (mode === 'done') {
@@ -1613,26 +1840,28 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     const row = el('div', { class: 'row' });
     if (mode === 'done') row.append(checkEl(t, 'fchk'));
     row.append(el('div', { class: 'row-main' },
-      crumb ? el('p', { class: 'crumb', text: `${crumb} ›` }) : null,
+      crumbEl(t),
       el('p', { class: 'row-title', text: t.title }),
       meta));
-    row.append(mode === 'done'
-      ? el('button', { type: 'button', class: 'ghost small restore', id: `farch-${t.id}`, text: '보관', 'aria-label': `'${t.title}' 보관`, onclick: () => setArchived(t, true) })
-      : el('button', { type: 'button', class: 'ghost small restore', id: `frest-${t.id}`, text: '되돌리기', 'aria-label': `'${t.title}' 되돌리기`, onclick: () => setArchived(t, false) }));
+    row.append(el('div', { class: 'row-actions' },
+      mode === 'done'
+        ? el('button', { type: 'button', class: 'ghost small restore', id: `farch-${t.id}`, text: '보관', 'aria-label': `'${t.title}' 보관`, onclick: () => setArchived(t, true) })
+        : el('button', { type: 'button', class: 'ghost small restore', id: `frest-${t.id}`, text: '되돌리기', 'aria-label': `'${t.title}' 되돌리기`, onclick: () => setArchived(t, false) }),
+      el('button', { type: 'button', class: 'ghost small danger-text', id: `fdel-${t.id}`, text: '삭제', 'aria-label': `'${t.title}' 삭제`, onclick: () => askDelete(t) })));
     li.append(row);
     return li;
   }
   function renderList() {
-    const doneList = state.tasks.filter((t) => t.done && !archivedPath(t))
+    const doneList = state.tasks.filter((t) => t.done && !archivedPath(t) && inCat(t))
       .sort((a, b) => String(b.doneAt).localeCompare(String(a.doneAt)));
-    const archList = state.tasks.filter((t) => t.archived && !ancestors(t).some((a) => a.archived))
+    const archList = state.tasks.filter((t) => t.archived && !ancestors(t).some((a) => a.archived) && inCat(t))
       .sort((a, b) => String(b.archivedAt).localeCompare(String(a.archivedAt)));
-    const openRoots = IX.roots.filter((t) => !t.done && !t.archived).sort(byUrgency);
+    const openRoots = IX.roots.filter((t) => !t.done && !t.archived && inCat(t)).sort(byUrgency);
     $('#c-done').textContent = state.ready ? doneList.length : '';
     $('#c-archived').textContent = state.ready ? archList.length : '';
     document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
 
-    const parents = state.tasks.filter((t) => isOpen(t) && liveKids(t).length);
+    const parents = state.tasks.filter((t) => isOpen(t) && liveKids(t).length && inCat(t));
     const fold = $('#fold-all');
     fold.hidden = !state.ready || state.tab !== 'todo' || !parents.length;
     fold.textContent = parents.some((t) => !state.collapsed.has(t.id)) ? '모두 접기' : '모두 펼치기';
@@ -1648,7 +1877,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
           el('button', { type: 'button', class: 'ghost', id: 'ex-btn', text: '예시 넣어 보기', onclick: addExamples }),
           el('p', { class: 'fine', text: '예시는 제목 앞에 (예시)가 붙어요. 다 본 뒤 보관하면 목록에서 사라져요.' })));
       } else {
-        area.append(emptyBox(el('p', { text: '진행 중인 일이 없어요. 적어 둔 일을 다 끝냈어요!' })));
+        area.append(emptyBox(el('p', { text: state.cat ? '이 카테고리에는 진행 중인 일이 없어요.' : '진행 중인 일이 없어요. 적어 둔 일을 다 끝냈어요!' })));
       }
       return;
     }
@@ -1689,6 +1918,21 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     }
     paintForm();
   }
+  /* 추가 창의 카테고리 고르기 */
+  function paintCatPick() {
+    const cur = cleanCat(state.catDraft);
+    const { list, suggested } = catChoices();
+    $('#cat-pick').replaceChildren(
+      el('button', {
+        type: 'button', class: 'chip small', id: 'catp-none', 'aria-pressed': String(!cur), text: '없음',
+        onclick: () => { state.catDraft = ''; $('#cat-new').value = ''; paintCatPick(); },
+      }),
+      ...list.map((c, i) => el('button', {
+        type: 'button', class: 'chip small' + (suggested.has(c) ? ' is-suggest' : ''), id: `catp-${i}`,
+        'aria-pressed': String(cur === c),
+        onclick: () => { state.catDraft = c; $('#cat-new').value = ''; paintCatPick(); },
+      }, el('span', { class: `cat-dot cat-c${catColor(c)}`, 'aria-hidden': 'true' }), c)));
+  }
   function paintForm() {
     document.querySelectorAll('#due-chips [data-due]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.due === state.dueKind)));
     document.querySelectorAll('#pri-chips [data-pri]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.pri) === state.pri)));
@@ -1696,8 +1940,14 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     $('#due-preview').textContent = state.due ? `시행일: ${fmtDate(state.due)} · ${whenLabel(daysUntil(state.due))}` : '시행일: 정하지 않음';
     const parent = state.parent ? IX.byId.get(state.parent) : null;
     $('#pri-chips').hidden = !!parent;
+    $('#cat-field').hidden = !!parent;
     $('#parent-hint').hidden = !parent;
-    if (parent) $('#parent-hint').textContent = `세부 할 일은 '${short(rootOf(parent).title)}'의 중요도를 따라요.`;
+    if (parent) {
+      const root = rootOf(parent);
+      $('#parent-hint').textContent = `세부 할 일은 '${short(root.title)}'의 중요도${root.category ? `와 카테고리(${root.category})` : ''}를 따라요.`;
+    } else {
+      paintCatPick();
+    }
     $('#add-btn').textContent = parent ? '세부 할 일 추가' : '추가하기';
   }
   function pickDue(kind) {
@@ -1727,6 +1977,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   function openAddDialog(parentId, due) {
     setParentChoice(parentId || '');
     if (!parentId) state.pri = 2;
+    state.catDraft = state.cat && state.cat !== NONE_CAT ? state.cat : '';
+    $('#cat-new').value = '';
     state.presetDue = validISO(due) || null;
     setDueDate(state.presetDue);
     $('#form-msg').replaceChildren();
@@ -1760,6 +2012,25 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     state.parent = e.target.value;
     paintForm();
   });
+  $('#cat-new').addEventListener('input', (e) => {
+    state.catDraft = e.target.value;
+    paintCatPick();
+  });
+  /* 삭제 확인 창 */
+  $('#confirm-yes').addEventListener('click', () => {
+    const id = pendingDelete;
+    closeConfirm();
+    if (id) doDelete(id);
+  });
+  $('#confirm-alt').addEventListener('click', () => {
+    const id = pendingDelete;
+    closeConfirm();
+    const t = id && IX.byId.get(id);
+    if (t) setArchived(t, true);
+  });
+  $('#confirm-no').addEventListener('click', closeConfirm);
+  cdlg.addEventListener('click', (e) => { if (e.target === cdlg) closeConfirm(); });
+  cdlg.addEventListener('close', () => { pendingDelete = null; });
   $('#add-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const input = $('#title');
@@ -1769,7 +2040,10 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     if (!store) { msg.replaceChildren(el('span', { text: '아직 저장소를 불러오는 중이에요. 잠시 후 다시 눌러 주세요.' })); return; }
     const parent = state.parent ? IX.byId.get(state.parent) : null;
     if (parent) { state.collapsed.delete(parent.id); saveCollapsed(); }
-    const t = addTask({ title, due: state.due, priority: parent ? 2 : state.pri, parentId: parent ? parent.id : null });
+    const t = addTask({
+      title, due: state.due, priority: parent ? 2 : state.pri,
+      parentId: parent ? parent.id : null, category: parent ? null : cleanCat(state.catDraft),
+    });
     if (parent) {
       msg.replaceChildren(el('span', { text: `'${short(parent.title)}' 아래에 '${short(t.title)}' 추가했어요. 이어서 더 적을 수 있어요.` }));
     } else {
@@ -1816,7 +2090,7 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
     requestRender();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || dlg.open || !state.panel) return;
+    if (e.key !== 'Escape' || dlg.open || cdlg.open || !state.panel) return;
     const id = state.panel.id;
     state.panel = null;
     requestRender();
@@ -1834,6 +2108,8 @@ legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
   try {
     const v = localStorage.getItem(LS_VIEW);
     if (v === 'dash' || v === 'cal' || v === 'tree') state.view = v;
+    const cv = localStorage.getItem(LS_CAT);
+    if (cv) state.cat = cv;
     const saved = localStorage.getItem(LS_TAB);
     if (saved === 'todo' || saved === 'done' || saved === 'archived') state.tab = saved;
   } catch (_) {}
