@@ -1,0 +1,724 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>할 일 나침반</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: 수첩 한 쪽 같은 좁은 한 줄 칼럼. 날짜·통계 → 급한 일 → 지금 할 일(형광펜 카드) → 추가 → 목록 */
+:root {
+  --bg: #EDF0F4;
+  --surface: #FFFFFF;
+  --sunk: #E2E7EE;
+  --ink: #18202D;
+  --muted: #566073;
+  --line: #D2D9E3;
+  --accent: #2B55C9;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #DCE5FB;
+  --mark: #FFE16B;
+  --danger: #B5302A;
+  --danger-soft: #FBE3E0;
+  --warn: #965800;
+  --warn-soft: #FBEED3;
+  --ok: #2B7A4B;
+  --f-display: "Black Han Sans", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F141C; --surface: #171E2A; --sunk: #202937; --ink: #E6EBF3; --muted: #9DA8BA;
+    --line: #2B3546; --accent: #88A7FF; --accent-ink: #0B1222; --accent-soft: #1F2B4A;
+    --mark: #6E5C14; --danger: #FF8C82; --danger-soft: #3B1E1D; --warn: #F2B65C;
+    --warn-soft: #362913; --ok: #76CF99;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F141C; --surface: #171E2A; --sunk: #202937; --ink: #E6EBF3; --muted: #9DA8BA;
+  --line: #2B3546; --accent: #88A7FF; --accent-ink: #0B1222; --accent-soft: #1F2B4A;
+  --mark: #6E5C14; --danger: #FF8C82; --danger-soft: #3B1E1D; --warn: #F2B65C;
+  --warn-soft: #362913; --ok: #76CF99;
+  color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 15px;
+  line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 104px;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.wrap { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* 머리말 */
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; }
+.eyebrow { margin: 0; font-size: 13px; color: var(--muted); letter-spacing: .02em; }
+h1 { margin: 2px 0 0; font-family: var(--f-display); font-weight: 400; font-size: 30px; line-height: 1.15; text-wrap: balance; }
+.stats { display: flex; gap: 6px; margin: 0; }
+.stats div { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-width: 62px; }
+.stats dt { font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+.stats dd { margin: 0; font-family: var(--f-mono); font-size: 20px; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.stats .is-over dd { color: var(--danger); }
+
+.label { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--muted); }
+
+/* 급한 일 */
+.alerts { display: grid; gap: 8px; }
+.alert { border-radius: 12px; padding: 12px 14px; }
+.alert h3 { margin: 0 0 4px; font-size: 14px; }
+.alert ul { margin: 0; padding-left: 18px; }
+.alert li { margin: 2px 0; }
+.alert.danger { background: var(--danger-soft); }
+.alert.danger h3 { color: var(--danger); }
+.alert.warn { background: var(--warn-soft); }
+.alert.warn h3 { color: var(--warn); }
+.alert.calm { background: var(--surface); border: 1px dashed var(--line); color: var(--muted); }
+.alert.calm p { margin: 0; }
+.alert-sub, .alert-more { color: var(--muted); }
+
+/* 지금 할 일 */
+.now { background: var(--surface); border: 2px solid var(--ink); border-radius: 14px; padding: 16px 18px 18px; }
+.now-title { margin: 2px 0 10px; font-size: 22px; font-weight: 700; line-height: 1.5; }
+.now-title mark {
+  color: inherit;
+  background: linear-gradient(transparent 55%, var(--mark) 55%, var(--mark) 94%, transparent 94%);
+  padding: 0 3px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.now-meta, .row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.now-meta { margin: 0 0 14px; }
+.now-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tip, .now-empty { margin: 12px 0 0; color: var(--muted); font-size: 14px; }
+.clock-line { margin: 12px 0 0; display: flex; align-items: baseline; gap: 8px; color: var(--muted); font-size: 14px; }
+.clock { font-family: var(--f-mono); font-size: 30px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.next { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+.next b { color: var(--ink); font-weight: 500; }
+
+.pill { display: inline-flex; align-items: center; font-size: 12px; font-weight: 500; padding: 2px 9px; border-radius: 999px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
+.pill.danger { background: var(--danger-soft); color: var(--danger); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.soon { background: var(--accent-soft); color: var(--accent); }
+.pri, .date { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.pri.p1 { color: var(--danger); font-weight: 700; }
+
+.primary { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: var(--r); padding: 10px 16px; font-weight: 700; }
+.ghost { background: transparent; border: 1px solid var(--line); border-radius: var(--r); padding: 9px 14px; }
+.ghost:hover { border-color: var(--muted); }
+.ghost.small { padding: 5px 10px; font-size: 13px; color: var(--muted); flex: none; }
+
+/* 추가 */
+.add form { display: flex; flex-direction: column; gap: 14px; }
+#title {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 16px;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--surface); color: var(--ink);
+}
+#title::placeholder { color: var(--muted); }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 13px; font-size: 14px; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.date-chip { display: inline-flex; align-items: center; gap: 4px; border: 1px dashed var(--line); border-radius: 999px; padding: 1px 6px 1px 13px; font-size: 14px; color: var(--muted); }
+.date-chip.is-on { border-style: solid; border-color: var(--ink); color: var(--ink); }
+.date-chip input { font: inherit; font-size: 14px; border: 0; background: transparent; color: var(--ink); padding: 4px; min-width: 0; max-width: 150px; }
+.form-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.due-preview, .form-msg { margin: 0; font-size: 13px; color: var(--muted); }
+.form-msg:empty { display: none; }
+
+/* 목록 */
+.list-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.list-head .label { margin: 0; }
+.tabs { display: flex; gap: 3px; background: var(--sunk); padding: 3px; border-radius: 10px; }
+.tab { border: 0; background: transparent; border-radius: 8px; padding: 6px 10px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.tab[aria-selected="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: 0 0 0 1px var(--line); }
+.count { font-family: var(--f-mono); font-variant-numeric: tabular-nums; margin-left: 2px; }
+.items { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.row { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row-main { flex: 1; min-width: 0; }
+.row-title { margin: 0; line-height: 1.5; }
+.row-meta { margin: 4px 0 0; }
+.row.is-done .row-title { text-decoration: line-through; color: var(--muted); }
+.check { flex: none; width: 36px; height: 36px; margin: -6px -4px -6px -8px; border: 0; background: transparent; padding: 0; display: grid; place-items: center; border-radius: 50%; }
+.ring { width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--muted); display: grid; place-items: center; }
+.check:hover .ring { border-color: var(--ok); }
+.check[aria-pressed="true"] .ring { background: var(--ok); border-color: var(--ok); }
+.check[aria-pressed="true"] .ring::after { content: ""; width: 9px; height: 5px; border-left: 2px solid var(--surface); border-bottom: 2px solid var(--surface); transform: translateY(-1px) rotate(-45deg); }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 18px; color: var(--muted); display: grid; gap: 10px; justify-items: start; }
+.empty p { margin: 0; }
+.fine { font-size: 13px; }
+
+.foot { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.foot p { margin: 0; }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: max-content;
+  max-width: min(520px, calc(100% - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+  box-sizing: border-box; display: flex; align-items: center; gap: 12px;
+  background: var(--ink); color: var(--bg); padding: 10px 12px 10px 16px; border-radius: 12px; font-size: 14px;
+}
+.toast span { min-width: 0; }
+.toast button { flex: none; background: transparent; border: 1px solid currentColor; border-radius: 8px; padding: 4px 10px; white-space: nowrap; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .chip, .tab, .ghost, .ring { transition: background-color .15s, border-color .15s, color .15s; }
+}
+</style>
+
+<main class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow" id="today-label">오늘</p>
+      <h1>할 일 나침반</h1>
+    </div>
+    <dl class="stats">
+      <div><dt>오늘 끝냄</dt><dd id="st-done">–</dd></div>
+      <div><dt>남은 일</dt><dd id="st-left">–</dd></div>
+      <div id="st-over-box"><dt>마감 지남</dt><dd id="st-over">–</dd></div>
+    </dl>
+  </header>
+
+  <section class="alerts" id="alerts" aria-label="급한 일" hidden></section>
+
+  <section class="now" aria-labelledby="now-h">
+    <h2 id="now-h" class="label">지금 할 일</h2>
+    <div id="now-body"><p class="now-empty">할 일을 불러오는 중이에요…</p></div>
+  </section>
+
+  <section class="add" aria-labelledby="add-h">
+    <h2 id="add-h" class="label">할 일 추가</h2>
+    <form id="add-form" autocomplete="off" novalidate>
+      <label for="title" class="sr">할 일</label>
+      <input id="title" name="title" type="text" maxlength="120" enterkeyhint="done" placeholder="예: 보고서 초안 쓰기">
+      <fieldset id="due-chips">
+        <legend>마감</legend>
+        <div class="chip-row">
+          <button type="button" class="chip" data-due="today">오늘</button>
+          <button type="button" class="chip" data-due="tomorrow">내일</button>
+          <button type="button" class="chip" data-due="weekend">이번 주말</button>
+          <button type="button" class="chip" data-due="none">없음</button>
+          <label class="date-chip" id="date-chip" for="due-date">날짜 고르기
+            <input type="date" id="due-date" name="due-date">
+          </label>
+        </div>
+      </fieldset>
+      <fieldset id="pri-chips">
+        <legend>중요도</legend>
+        <div class="chip-row">
+          <button type="button" class="chip" data-pri="1">높음</button>
+          <button type="button" class="chip" data-pri="2">보통</button>
+          <button type="button" class="chip" data-pri="3">낮음</button>
+        </div>
+      </fieldset>
+      <div class="form-foot">
+        <button type="submit" class="primary" id="add-btn">추가하기</button>
+        <p class="due-preview" id="due-preview">마감: 정하지 않음</p>
+      </div>
+      <p class="form-msg" id="form-msg" role="status"></p>
+    </form>
+  </section>
+
+  <section class="list" aria-labelledby="list-h">
+    <div class="list-head">
+      <h2 id="list-h" class="label">목록</h2>
+      <div class="tabs" role="tablist" aria-label="목록 보기">
+        <button type="button" role="tab" class="tab" data-tab="todo" id="tab-todo">남은 일 <span class="count" id="c-todo"></span></button>
+        <button type="button" role="tab" class="tab" data-tab="done" id="tab-done">완료 <span class="count" id="c-done"></span></button>
+        <button type="button" role="tab" class="tab" data-tab="archived" id="tab-archived">보관함 <span class="count" id="c-archived"></span></button>
+      </div>
+    </div>
+    <div role="tabpanel" aria-labelledby="list-h">
+      <ul class="items" id="items" hidden></ul>
+      <div class="empty" id="empty"><p>불러오는 중이에요…</p></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <p id="save-note">저장 위치를 확인하는 중이에요…</p>
+    <p>할 일은 지워지지 않아요. '보관'을 누르면 보관함으로 옮겨지고, 언제든 되돌릴 수 있어요.</p>
+  </footer>
+</main>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+  const LS_TASKS = 'todo-compass.tasks.v1';
+  const LS_TAB = 'todo-compass.tab';
+  const WD = ['일', '월', '화', '수', '목', '금', '토'];
+  const PRI = { 1: '높음', 2: '보통', 3: '낮음' };
+  const FIVE_MIN = 5 * 60 * 1000;
+
+  const state = { tasks: [], ready: false, tab: 'todo', due: null, dueKind: 'none', pri: 2, day: '' };
+  let store = null;
+  const chains = new Map();
+  const timer = { handle: null, taskId: null, endAt: 0, finishedFor: null };
+
+  const $ = (s) => document.querySelector(s);
+  function el(tag, props, ...kids) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(props || {})) {
+      if (v == null || v === false) continue;
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v);
+    }
+    for (const kid of kids) if (kid != null) n.append(kid);
+    return n;
+  }
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  /* ---------- 날짜 ---------- */
+  function iso(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  const todayISO = () => iso(new Date());
+  function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return iso(d); }
+  function parseISO(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+  const localDay = (ts) => (ts ? iso(new Date(ts)) : null);
+  function daysLeft(t) {
+    if (!t.due) return null;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((parseISO(t.due) - today) / 86400000);
+  }
+  function fmtDate(s) { const d = parseISO(s); return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WD[d.getDay()]})`; }
+  function dueLabel(t) {
+    const n = daysLeft(t);
+    if (n === null) return '마감 없음';
+    if (n < 0) return `${-n}일 지남`;
+    if (n === 0) return '오늘 마감';
+    if (n === 1) return '내일 마감';
+    return `${n}일 남음`;
+  }
+  function dueTone(t) {
+    const n = daysLeft(t);
+    if (n === null) return '';
+    if (n < 0) return 'danger';
+    if (n === 0) return 'warn';
+    return n <= 2 ? 'soon' : '';
+  }
+
+  /* ---------- 할 일 데이터 ---------- */
+  const isActive = (t) => !t.done && !t.archived;
+  const isOverdue = (t) => { const n = daysLeft(t); return n !== null && n < 0; };
+  /* 마감이 가까운 순 → 중요도 높은 순 → 먼저 적은 순 (Python 버전과 같은 규칙) */
+  function byUrgency(a, b) {
+    const la = daysLeft(a), lb = daysLeft(b);
+    return ((la === null ? 1e6 : la) - (lb === null ? 1e6 : lb))
+      || (a.priority - b.priority)
+      || String(a.created).localeCompare(String(b.created))
+      || a.id.localeCompare(b.id);
+  }
+  function normalize(id, d) {
+    const p = Number(d.priority);
+    const str = (v) => (typeof v === 'string' ? v : null);
+    return {
+      id: String(id),
+      title: str(d.title) || '(제목 없음)',
+      due: /^\d{4}-\d{2}-\d{2}$/.test(d.due || '') ? d.due : null,
+      priority: p === 1 || p === 3 ? p : 2,
+      done: !!d.done,
+      archived: !!d.archived,
+      created: str(d.created) || '',
+      doneAt: str(d.doneAt),
+      archivedAt: str(d.archivedAt),
+    };
+  }
+  const newId = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const short = (s) => (s.length > 18 ? s.slice(0, 18) + '…' : s);
+
+  function upsert(t) {
+    const copy = state.tasks.slice();
+    const i = copy.findIndex((x) => x.id === t.id);
+    if (i >= 0) copy[i] = t; else copy.push(t);
+    state.tasks = copy;
+  }
+  function saveError(e) {
+    const code = e && e.code;
+    if (code === 'invalid_argument') return '저장하지 못했어요. 이 계정은 이 페이지에 저장할 권한이 없어요.';
+    if (code === 'quota_exceeded') return '저장 공간이 가득 차서 저장하지 못했어요.';
+    if (code === 'local_failed') return '이 브라우저에 저장하지 못했어요. 사생활 보호 모드를 끄고 다시 시도해 주세요.';
+    return '저장하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.';
+  }
+  /* 화면을 먼저 바꾸고, 같은 할 일의 저장은 한 번에 하나씩 차례로 */
+  function commit(t) {
+    upsert(t);
+    render();
+    const prev = chains.get(t.id) || Promise.resolve();
+    const next = prev.catch(() => {}).then(() => store.save(t));
+    chains.set(t.id, next);
+    next.catch((e) => toast(saveError(e)));
+  }
+
+  function addTask(title, due, priority) {
+    const t = normalize(newId(), { title, due, priority, created: new Date().toISOString() });
+    commit(t);
+    return t;
+  }
+  function setDone(t, done) {
+    const n = { ...t, done, doneAt: done ? new Date().toISOString() : null };
+    commit(n);
+    if (done) {
+      if (timer.taskId === t.id) stopTimer();
+      const left = state.tasks.filter(isActive).length;
+      toast(`'${short(t.title)}' 완료! 남은 일 ${left}개.`, () => setDone(n, false));
+    }
+  }
+  function setArchived(t, archived) {
+    const n = { ...t, archived, archivedAt: archived ? new Date().toISOString() : null };
+    commit(n);
+    if (archived) {
+      if (timer.taskId === t.id) stopTimer();
+      toast(`'${short(t.title)}' 보관함으로 옮겼어요.`, () => setArchived(n, false));
+    } else {
+      toast(`'${short(t.title)}' 목록으로 되돌렸어요.`);
+    }
+  }
+  function addExamples() {
+    if (!store) return;
+    addTask('(예시) 밀린 설거지 하기', addDays(-1), 2);
+    addTask('(예시) 보고서 초안 쓰기', todayISO(), 1);
+    addTask('(예시) 운동 30분', null, 3);
+    toast('예시 할 일 3개를 넣었어요. 다 보면 보관하세요.');
+  }
+
+  /* ---------- 저장소 연결 ---------- */
+  const setNote = (s) => { $('#save-note').textContent = s; };
+
+  function useLocal(note) {
+    let raw = [];
+    try { raw = JSON.parse(localStorage.getItem(LS_TASKS) || '[]'); } catch (_) { raw = []; }
+    state.tasks = Array.isArray(raw) ? raw.filter((x) => x && x.id).map((x) => normalize(x.id, x)) : [];
+    store = {
+      async save() {
+        try { localStorage.setItem(LS_TASKS, JSON.stringify(state.tasks)); }
+        catch (_) { throw { code: 'local_failed' }; }
+      },
+    };
+    state.ready = true;
+    setNote(note);
+    render();
+  }
+
+  async function connect() {
+    const c = window.claude;
+    if (!c || typeof c.use !== 'function') {
+      useLocal('이 브라우저에만 저장돼요. 다른 기기에서는 보이지 않아요.');
+      return;
+    }
+    const slow = setTimeout(() => {
+      if (!state.ready) setNote('저장소에 연결하는 데 시간이 걸리고 있어요. 인터넷 연결을 확인해 주세요.');
+    }, 10000);
+    let db = null, user = null;
+    try { [db, user] = await Promise.all([c.use('db'), c.use('user')]); } catch (_) {}
+    const uid = user ? await user.id() : null;
+    if (!db || !uid) {
+      clearTimeout(slow);
+      useLocal('로그인 정보를 받지 못해 이 브라우저에만 저장돼요. 다른 기기에서는 보이지 않아요.');
+      return;
+    }
+    const col = db.collection('data/users/' + uid);
+    store = {
+      async save(t) {
+        try { await col.doc(t.id).set(t); }
+        catch (e) {
+          if (!e || e.code !== 'unavailable') throw e;
+          await wait(600 + Math.random() * 900);
+          await col.doc(t.id).set(t);
+        }
+      },
+    };
+    col.onSnapshot((snap) => {
+      if (!snap.metadata.fromCache) clearTimeout(slow);
+      state.tasks = snap.docs.map((d) => normalize(d.id, d.data() || {}));
+      state.ready = true;
+      setNote('내 계정에 저장돼요. 나만 볼 수 있고, 휴대폰과 컴퓨터 어디서 열어도 같은 목록이 보여요.');
+      render();
+    }, () => {
+      clearTimeout(slow);
+      state.ready = true;
+      setNote('저장소 연결이 끊겼어요. 페이지를 새로고침하면 다시 연결돼요.');
+      render();
+    });
+  }
+
+  /* ---------- 5분 타이머 ---------- */
+  const mmss = (ms) => {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  };
+  function startTimer(id) {
+    clearInterval(timer.handle);
+    timer.taskId = id;
+    timer.finishedFor = null;
+    timer.endAt = Date.now() + FIVE_MIN;
+    timer.handle = setInterval(tick, 500);
+    renderNow();
+  }
+  function stopTimer() {
+    clearInterval(timer.handle);
+    timer.handle = null;
+    timer.taskId = null;
+  }
+  function tick() {
+    const left = timer.endAt - Date.now();
+    if (left <= 0) {
+      const id = timer.taskId;
+      stopTimer();
+      timer.finishedFor = id;
+      renderNow();
+      toast('5분 끝! 시작한 것만으로도 잘했어요.');
+      return;
+    }
+    const c = document.getElementById('timer-clock');
+    if (c) c.textContent = mmss(left);
+  }
+
+  /* ---------- 화면 ---------- */
+  function render() {
+    renderHeader();
+    renderAlerts();
+    renderNow();
+    renderList();
+  }
+
+  function renderHeader() {
+    const now = new Date();
+    state.day = iso(now);
+    $('#today-label').textContent = `${now.getMonth() + 1}월 ${now.getDate()}일 ${WD[now.getDay()]}요일`;
+    const active = state.tasks.filter(isActive);
+    const over = active.filter(isOverdue).length;
+    const doneToday = state.tasks.filter((t) => t.done && localDay(t.doneAt) === state.day).length;
+    $('#st-done').textContent = state.ready ? doneToday : '–';
+    $('#st-left').textContent = state.ready ? active.length : '–';
+    $('#st-over').textContent = state.ready ? over : '–';
+    $('#st-over-box').classList.toggle('is-over', over > 0);
+  }
+
+  function alertBlock(tone, heading, list) {
+    const ul = el('ul');
+    list.slice(0, 3).forEach((t) => ul.append(el('li', null,
+      el('span', { text: t.title }),
+      tone === 'danger' ? el('span', { class: 'alert-sub', text: ` · ${dueLabel(t)}` }) : null)));
+    if (list.length > 3) ul.append(el('li', { class: 'alert-more', text: `그 밖에 ${list.length - 3}개 더` }));
+    return el('div', { class: `alert ${tone}` }, el('h3', { text: heading }), ul);
+  }
+  function renderAlerts() {
+    const box = $('#alerts');
+    box.replaceChildren();
+    const active = state.tasks.filter(isActive).sort(byUrgency);
+    if (!state.ready || !active.length) { box.hidden = true; return; }
+    const over = active.filter(isOverdue);
+    const today = active.filter((t) => daysLeft(t) === 0);
+    if (over.length) box.append(alertBlock('danger', `마감이 지난 일 ${over.length}개`, over));
+    if (today.length) box.append(alertBlock('warn', `오늘 마감인 일 ${today.length}개`, today));
+    if (!over.length && !today.length) {
+      box.append(el('div', { class: 'alert calm' }, el('p', { text: '오늘 급한 일은 없어요. 여유 있을 때 미리 해 두세요.' })));
+    }
+    box.hidden = false;
+  }
+
+  function renderNow() {
+    const body = $('#now-body');
+    body.replaceChildren();
+    if (!state.ready) {
+      body.append(el('p', { class: 'now-empty', text: '할 일을 불러오는 중이에요…' }));
+      return;
+    }
+    const active = state.tasks.filter(isActive).sort(byUrgency);
+    if (timer.taskId && !active.some((t) => t.id === timer.taskId)) stopTimer();
+    if (!active.length) {
+      body.append(
+        el('p', { class: 'now-title', text: state.tasks.length ? '남은 할 일이 없어요. 잘했어요!' : '아직 적어 둔 할 일이 없어요.' }),
+        el('p', { class: 'tip', text: '아래 칸에 할 일을 적으면 무엇부터 할지 여기에서 골라 드려요.' }));
+      return;
+    }
+    const focus = (timer.taskId && active.find((t) => t.id === timer.taskId)) || active[0];
+    const running = !!timer.handle && timer.taskId === focus.id;
+    body.append(
+      el('p', { class: 'now-title' }, el('mark', { text: focus.title })),
+      el('p', { class: 'now-meta' },
+        el('span', { class: `pill ${dueTone(focus)}`, title: focus.due ? fmtDate(focus.due) : null, text: dueLabel(focus) }),
+        focus.due ? el('span', { class: 'date', text: fmtDate(focus.due) }) : null,
+        el('span', { class: `pri p${focus.priority}`, text: `중요도 ${PRI[focus.priority]}` })));
+    const actions = el('div', { class: 'now-actions' });
+    if (running) {
+      actions.append(el('button', { type: 'button', class: 'ghost', text: '타이머 멈추기', onclick: () => { stopTimer(); renderNow(); } }));
+    } else {
+      actions.append(el('button', {
+        type: 'button', class: 'primary',
+        text: timer.finishedFor === focus.id ? '5분 더 하기' : '5분만 시작하기',
+        onclick: () => startTimer(focus.id),
+      }));
+    }
+    actions.append(el('button', { type: 'button', class: 'ghost', text: '끝냈어요', onclick: () => setDone(focus, true) }));
+    body.append(actions);
+    if (running) {
+      body.append(el('p', { class: 'clock-line' },
+        el('span', { text: '남은 시간' }),
+        el('span', { class: 'clock', id: 'timer-clock', text: mmss(timer.endAt - Date.now()) })));
+    } else if (timer.finishedFor === focus.id) {
+      body.append(el('p', { class: 'tip', text: '5분 해냈어요! 이어서 해도 되고, 여기서 멈춰도 괜찮아요.' }));
+    } else {
+      body.append(el('p', { class: 'tip', text: '시작이 제일 어려워요. 딱 5분만 해 보세요.' }));
+    }
+    const next = active.find((t) => t.id !== focus.id);
+    if (next) body.append(el('p', { class: 'next' }, '그다음: ', el('b', { text: next.title }), ` · ${dueLabel(next)}`));
+  }
+
+  function row(t) {
+    const tab = state.tab;
+    const meta = el('p', { class: 'row-meta' });
+    if (tab === 'todo') {
+      meta.append(el('span', { class: `pill ${dueTone(t)}`, text: dueLabel(t) }));
+      if (t.due) meta.append(el('span', { class: 'date', text: fmtDate(t.due) }));
+      meta.append(el('span', { class: `pri p${t.priority}`, text: `중요도 ${PRI[t.priority]}` }));
+    } else if (tab === 'done') {
+      meta.append(el('span', { class: 'date', text: t.doneAt ? `${fmtDate(localDay(t.doneAt))} 완료` : '완료' }));
+    } else {
+      meta.append(el('span', { class: 'date', text: t.archivedAt ? `${fmtDate(localDay(t.archivedAt))} 보관` : '보관함' }));
+      if (t.done) meta.append(el('span', { class: 'pill', text: '끝낸 일' }));
+    }
+    const li = el('li', { class: 'row' + (t.done && tab !== 'archived' ? ' is-done' : '') });
+    if (tab !== 'archived') {
+      li.append(el('button', {
+        type: 'button', class: 'check', 'aria-pressed': String(t.done),
+        'aria-label': t.done ? `'${t.title}' 완료 취소` : `'${t.title}' 완료로 표시`,
+        onclick: () => setDone(t, !t.done),
+      }, el('span', { class: 'ring', 'aria-hidden': 'true' })));
+    }
+    li.append(el('div', { class: 'row-main' }, el('p', { class: 'row-title', text: t.title }), meta));
+    li.append(tab === 'archived'
+      ? el('button', { type: 'button', class: 'ghost small', text: '되돌리기', 'aria-label': `'${t.title}' 되돌리기`, onclick: () => setArchived(t, false) })
+      : el('button', { type: 'button', class: 'ghost small', text: '보관', 'aria-label': `'${t.title}' 보관`, onclick: () => setArchived(t, true) }));
+    return li;
+  }
+
+  function renderList() {
+    const groups = {
+      todo: state.tasks.filter(isActive).sort(byUrgency),
+      done: state.tasks.filter((t) => t.done && !t.archived).sort((a, b) => String(b.doneAt).localeCompare(String(a.doneAt))),
+      archived: state.tasks.filter((t) => t.archived).sort((a, b) => String(b.archivedAt).localeCompare(String(a.archivedAt))),
+    };
+    for (const k of Object.keys(groups)) $(`#c-${k}`).textContent = state.ready ? groups[k].length : '';
+    document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
+    const items = groups[state.tab] || [];
+    const ul = $('#items');
+    const empty = $('#empty');
+    ul.replaceChildren(...items.map(row));
+    ul.hidden = !items.length;
+    empty.replaceChildren();
+    empty.hidden = !!items.length;
+    if (items.length) return;
+    if (!state.ready) {
+      empty.append(el('p', { text: '불러오는 중이에요…' }));
+    } else if (state.tab === 'todo' && !state.tasks.length) {
+      empty.append(
+        el('p', { text: '아직 적어 둔 할 일이 없어요. 위 칸에 첫 할 일을 적어 보세요.' }),
+        el('button', { type: 'button', class: 'ghost', text: '예시 3개 넣어 보기', onclick: addExamples }),
+        el('p', { class: 'fine', text: '예시는 제목 앞에 (예시)가 붙어요. 다 본 뒤 보관하면 목록에서 사라져요.' }));
+    } else if (state.tab === 'todo') {
+      empty.append(el('p', { text: '남은 일이 없어요. 적어 둔 일을 다 끝냈어요!' }));
+    } else if (state.tab === 'done') {
+      empty.append(el('p', { text: '아직 끝낸 일이 없어요. 하나 끝내면 여기에 모여요.' }));
+    } else {
+      empty.append(el('p', { text: "보관한 일이 없어요. 목록에서 숨기고 싶은 일은 '보관'을 누르세요. 기록은 지워지지 않아요." }));
+    }
+  }
+
+  /* ---------- 알림 띠 ---------- */
+  let toastTimer = null;
+  function hideToast() { $('#toast').hidden = true; }
+  function toast(msg, undo) {
+    const box = $('#toast');
+    box.replaceChildren(el('span', { text: msg }));
+    if (undo) box.append(el('button', { type: 'button', text: '되돌리기', onclick: () => { hideToast(); undo(); } }));
+    box.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, undo ? 6000 : 3500);
+  }
+
+  /* ---------- 추가 폼 ---------- */
+  function paintForm() {
+    document.querySelectorAll('#due-chips [data-due]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.due === state.dueKind)));
+    document.querySelectorAll('#pri-chips [data-pri]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.pri) === state.pri)));
+    $('#date-chip').classList.toggle('is-on', state.dueKind === 'custom');
+    $('#due-preview').textContent = state.due ? `마감: ${fmtDate(state.due)} · ${dueLabel({ due: state.due })}` : '마감: 정하지 않음';
+  }
+  function pickDue(kind) {
+    const day = new Date().getDay();
+    state.dueKind = kind;
+    state.due = kind === 'today' ? todayISO()
+      : kind === 'tomorrow' ? addDays(1)
+      : kind === 'weekend' ? addDays(day === 0 ? 0 : 6 - day)
+      : null;
+    $('#due-date').value = state.due || '';
+    paintForm();
+  }
+  $('#due-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-due]');
+    if (b) pickDue(b.dataset.due);
+  });
+  $('#due-date').addEventListener('change', (e) => {
+    const v = e.target.value;
+    state.due = /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+    state.dueKind = state.due ? 'custom' : 'none';
+    paintForm();
+  });
+  $('#pri-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-pri]');
+    if (!b) return;
+    state.pri = Number(b.dataset.pri);
+    paintForm();
+  });
+  $('#add-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = $('#title');
+    const msg = $('#form-msg');
+    const title = input.value.trim();
+    if (!title) { msg.textContent = '할 일 내용을 적어 주세요.'; input.focus(); return; }
+    if (!store) { msg.textContent = '아직 저장소를 불러오는 중이에요. 잠시 후 다시 눌러 주세요.'; return; }
+    const t = addTask(title, state.due, state.pri);
+    msg.textContent = `추가했어요. (${dueLabel(t)}, 중요도 ${PRI[t.priority]})`;
+    input.value = '';
+    state.pri = 2;
+    pickDue('none');
+    input.focus();
+  });
+  document.querySelector('.tabs').addEventListener('click', (e) => {
+    const b = e.target.closest('.tab');
+    if (!b) return;
+    state.tab = b.dataset.tab;
+    try { localStorage.setItem(LS_TAB, state.tab); } catch (_) {}
+    renderList();
+  });
+
+  /* 자정이 지나면 '며칠 남음'을 새로 계산 */
+  setInterval(() => { if (iso(new Date()) !== state.day) render(); }, 60000);
+
+  try {
+    const saved = localStorage.getItem(LS_TAB);
+    if (saved === 'todo' || saved === 'done' || saved === 'archived') state.tab = saved;
+  } catch (_) {}
+  pickDue('none');
+  render();
+  connect();
+})();
+</script>
