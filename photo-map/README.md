@@ -115,6 +115,10 @@ PC에서 시험만 해 보려면, 이 폴더에서 `python -m http.server 8000` 
 
 **아이폰**
 
+- 사진을 한꺼번에 많이 고르면, 아이폰이 사진을 준비하는 데 1분 넘게 걸리거나 메모리가 부족해 페이지가 새로 열릴 수 있어요.
+  **30~50장씩** 나눠서 고르세요. 처음에는 10장 정도로 시험해 보세요.
+  - 앱은 사진을 기다리는 동안 안내를 띄우고, 아이폰에서는 한 장씩 읽으며 20장마다 저장해요.
+  - 도중에 페이지가 새로 열리면 다시 열었을 때 알려줘요. 같은 사진을 다시 고르면 남은 사진만 더해요.
 - 사진을 고르는 화면에 **옵션** 버튼이 보이면 눌러서 **위치** 를 켜고 고르세요.
 - 그래도 빠지면 사진 앱에서 공유 → **옵션** 에서 **위치** 를 켜고 **파일에 저장** 한 뒤,
   앱에서 **파일 앱에서 고르기** 로 불러오세요.
@@ -281,7 +285,10 @@ OpenStreetMap
 - 차단된 타일 (Referer 없을 때, file://): https://wiki.openstreetmap.org/wiki/Blocked_tiles
 - Nominatim 이용 정책: https://operations.osmfoundation.org/policies/nominatim/
 
-휴대폰 위치 정보
+휴대폰 위치 정보와 사진 고르기
+- WebKit 버그 254616 (iOS에서 사진을 많이 고르면 준비가 매우 느려짐): https://bugs.webkit.org/show_bug.cgi?id=254616
+- WebKit 버그 172533 (사진을 많이 다루면 메모리 부족으로 페이지가 새로 열림): https://bugs.webkit.org/show_bug.cgi?id=172533
+- WebKit 버그 303803 (accept에 HEIC가 있으면 다른 사진도 HEIC로 바꾸는 문제): https://bugs.webkit.org/show_bug.cgi?id=303803
 - WebKit 버그 207088 (iOS 사진 업로드 시 EXIF 제거): https://bugs.webkit.org/show_bug.cgi?id=207088
 - Apple 개발자 포럼 (사진 선택 화면의 옵션·위치): https://developer.apple.com/forums/thread/733292
 - Apple 개발자 포럼 (iPadOS 17.4.1 이후 위치 유지 보고): https://developer.apple.com/forums/thread/773990

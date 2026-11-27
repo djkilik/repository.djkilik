@@ -104,7 +104,9 @@
 
   U.isTouch = () => window.matchMedia('(pointer: coarse)').matches;
   U.isAndroid = () => /Android/i.test(navigator.userAgent);
-  U.isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  // 아이패드는 PC처럼 보이는 경우가 있어서 터치 지점 수로도 확인해요.
+  U.isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   U.isNarrow = () => window.matchMedia('(max-width: 860px)').matches;
 
   U.bytes = (n) => {

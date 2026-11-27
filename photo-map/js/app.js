@@ -705,6 +705,35 @@
     };
   }
 
+  // ───────── 사진 고르기 (아이폰 대비) ─────────
+  // 사진을 고르거나 읽는 도중에 페이지가 새로 열렸는지 알아내려고, 이 탭에만 잠깐 표시를 남겨요.
+  const PENDING_KEY = 'photo-footprints.pending';
+  function setPending(phase, n) {
+    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify({ phase, n: n || 0, t: Date.now() })); } catch (e) { /* 저장 못 해도 괜찮아요 */ }
+  }
+  function takePending() {
+    try {
+      const v = JSON.parse(sessionStorage.getItem(PENDING_KEY) || 'null');
+      sessionStorage.removeItem(PENDING_KEY);
+      return v;
+    } catch (e) {
+      return null;
+    }
+  }
+  function clearPending() {
+    try { sessionStorage.removeItem(PENDING_KEY); } catch (e) { /* 무시 */ }
+  }
+
+  function openPicker(id) {
+    closeDialogs();
+    if (U.isTouch()) {
+      setPending('picking');
+      $('#side').scrollTop = 0;
+      notice('waiting', '사진을 고른 뒤 "추가"를 누르면 바로 읽기 시작해요. 아이폰은 사진을 많이 고르면 사진을 준비하는 데 1분 넘게 걸릴 수 있어요. 처음에는 10장 정도로 시험해 보세요.');
+    }
+    $(id).click();
+  }
+
   async function importFiles(list) {
     const all = Array.from(list || []);
     if (all.length === 1 && /\.json$/i.test(all[0].name)) { importBackup(all[0]); return; }
@@ -715,6 +744,9 @@
     }
     if (S.importing) { toast('사진을 읽고 있어요. 끝난 뒤에 다시 해 주세요.'); return; }
     S.importing = true;
+    setPending('reading', files.length);
+    $('#side').scrollTop = 0;
+    toast(`사진 ${files.length}장을 받았어요. 읽는 중이에요…`, 3000);
     $('#btnAdd').disabled = true;
     if (S.sample) clearSample(false);
 
@@ -725,6 +757,16 @@
     const queue = files.slice();
     progress(0, files.length, '사진 읽는 중');
 
+    // 20장마다 저장해요. 중간에 페이지가 새로 열려도 읽은 만큼은 남아요.
+    const toSave = [];
+    let saveChain = Promise.resolve();
+    let saveFailed = false;
+    const flushSave = () => {
+      if (!toSave.length) return;
+      const batch = toSave.splice(0);
+      saveChain = saveChain.then(() => PM.store.put('photos', batch)).catch(() => { saveFailed = true; });
+    };
+
     async function worker() {
       while (queue.length) {
         const f = queue.shift();
@@ -734,12 +776,14 @@
           if (old) {
             dup++;
             S.files.set(rec.id, f);
-            if (!old.thumb && rec.thumb) { old.thumb = rec.thumb; updated.push(old); }
+            if (!old.thumb && rec.thumb) { old.thumb = rec.thumb; updated.push(old); toSave.push(old); }
           } else {
             known.set(rec.id, rec);
             added.push(rec);
+            toSave.push(rec);
             S.files.set(rec.id, f);
           }
+          if (toSave.length >= 20) flushSave();
         } catch (e) {
           failed++;
           console.warn('사진을 읽지 못했어요:', f.name, e);
@@ -748,18 +792,21 @@
         progress(done, files.length, '사진 읽는 중');
       }
     }
-    const workers = Math.min(U.isTouch() ? 2 : 4, files.length);
+    // 아이폰은 메모리 여유가 적어서 한 장씩, 다른 휴대폰은 두 장씩, PC는 네 장씩 읽어요.
+    const workers = Math.min(U.isIOS() ? 1 : (U.isTouch() ? 2 : 4), files.length);
     await Promise.all(Array.from({ length: workers }, worker));
 
+    flushSave();
+    await saveChain;
+    if (saveFailed) {
+      notice('savefail', '기록을 이 기기에 저장하지 못했어요. 저장 공간이 부족할 수 있어요. 지금 보이는 기록은 창을 닫으면 사라질 수 있어요.', { tone: 'warn' });
+    }
     if (added.length || updated.length) {
       S.photos.push(...added);
-      try {
-        await PM.store.put('photos', added.concat(updated));
-      } catch (e) {
-        notice('savefail', '기록을 이 기기에 저장하지 못했어요. 저장 공간이 부족할 수 있어요. 지금 보이는 기록은 창을 닫으면 사라질 수 있어요.', { tone: 'warn' });
-      }
       PM.store.askPersist();
     }
+    clearPending();
+    dismissNotice('reloaded');
     progressDone();
     S.importing = false;
     $('#btnAdd').disabled = false;
@@ -1192,9 +1239,9 @@
     }
     const act = t.dataset.act;
     switch (act) {
-      case 'pick-photos': closeDialogs(); $('#filePhotos').click(); break;
-      case 'pick-folder': closeDialogs(); $('#fileFolder').click(); break;
-      case 'pick-any': closeDialogs(); $('#fileAny').click(); break;
+      case 'pick-photos': openPicker('#filePhotos'); break;
+      case 'pick-folder': openPicker('#fileFolder'); break;
+      case 'pick-any': openPicker('#fileAny'); break;
       case 'pick-backup': closeDialogs(); $('#fileBackup').click(); break;
       case 'add': openAdd(false); break;
       case 'tips': openAdd(true); break;
@@ -1243,11 +1290,19 @@
     $('#tabPlaces').addEventListener('click', () => setTab('places'));
 
     for (const id of ['#filePhotos', '#fileAny', '#fileFolder']) {
-      $(id).addEventListener('change', (e) => {
-        const files = Array.from(e.target.files || []);
-        e.target.value = '';
-        if (files.length) importFiles(files);
+      const input = $(id);
+      input.addEventListener('change', () => {
+        const files = Array.from(input.files || []);
+        dismissNotice('waiting');
+        if (!files.length) {
+          clearPending();
+          toast('고른 사진을 받지 못했어요. 장수를 줄여서 다시 골라 보세요.', 5000);
+          return;
+        }
+        // 다 읽은 뒤에 선택 칸을 비워요. (같은 사진을 다시 고를 수 있게)
+        Promise.resolve(importFiles(files)).finally(() => { input.value = ''; });
       });
+      input.addEventListener('cancel', () => { dismissNotice('waiting'); clearPending(); });
     }
     $('#fileBackup').addEventListener('change', (e) => {
       const f = e.target.files && e.target.files[0];
@@ -1345,6 +1400,7 @@
 
   // ───────── 시작 ─────────
   async function boot() {
+    const pending = takePending();
     bindUI();
     $('#originCode').textContent = originText();
     PM.geo.setMapGetter(() => S.map);
@@ -1368,6 +1424,17 @@
       PM.geo.load((geo || []).filter((g) => g && typeof g.key === 'string' && GEO_KEY_RE.test(g.key)));
     } catch (e) {
       console.warn('저장된 기록을 읽지 못했어요:', e);
+    }
+    if (pending && Date.now() - pending.t < 30 * 60 * 1000) {
+      if (pending.phase === 'reading') {
+        notice('reloaded', `사진 ${pending.n}장을 읽는 중에 페이지가 다시 열렸어요. 휴대폰 메모리가 부족했을 수 있어요. 그때까지 읽은 사진은 저장했어요. 나머지는 30~50장씩 나눠서 다시 골라 주세요. 이미 넣은 사진은 알아서 건너뛰어요.`, {
+          tone: 'warn', actions: [{ label: '사진 다시 고르기', act: 'add' }]
+        });
+      } else if (pending.phase === 'picking' && U.isTouch()) {
+        notice('reloaded', '사진을 고르는 동안 페이지가 다시 열렸어요. 사진을 한꺼번에 많이 고르면 휴대폰 메모리가 부족해질 수 있어요. 30~50장씩 나눠서 골라 보세요.', {
+          tone: 'warn', actions: [{ label: '사진 다시 고르기', act: 'add' }]
+        });
+      }
     }
     rebuild();
     S.screen = S.photos.length ? 'list' : 'empty';

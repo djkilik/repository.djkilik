@@ -171,10 +171,11 @@
   </main>
 </div>
 
-<input type="file" id="filePhotos" accept="image/*,.heic,.heif,.HEIC,.HEIF" multiple hidden>
-<input type="file" id="fileAny" multiple hidden>
-<input type="file" id="fileFolder" webkitdirectory multiple hidden>
-<input type="file" id="fileBackup" accept=".json,application/json" hidden>
+<!-- 일부 휴대폰 브라우저를 위해 display:none 대신 화면 밖에 둬요 -->
+<input type="file" class="file-input" id="filePhotos" accept="image/*,.heic,.heif,.HEIC,.HEIF" multiple tabindex="-1" aria-hidden="true">
+<input type="file" class="file-input" id="fileAny" multiple tabindex="-1" aria-hidden="true">
+<input type="file" class="file-input" id="fileFolder" webkitdirectory multiple tabindex="-1" aria-hidden="true">
+<input type="file" class="file-input" id="fileBackup" accept=".json,application/json" tabindex="-1" aria-hidden="true">
 
 <div class="drop" id="drop" hidden>
   <div class="drop-card">
@@ -219,6 +220,7 @@
           </ul>
           <h3>아이폰</h3>
           <ul>
+            <li>사진을 많이 고르면 아이폰이 사진을 준비하는 데 오래 걸리거나 페이지가 새로 열릴 수 있어요. <b>30~50장씩</b> 나눠서 고르세요.</li>
             <li>사진을 고르는 화면에 <b>옵션</b> 버튼이 보이면 눌러서 <b>위치</b>를 켜고 고르세요.</li>
             <li>그래도 빠지면 사진 앱에서 공유 → <b>옵션</b>에서 <b>위치</b>를 켜고 <b>파일에 저장</b>한 다음, 여기서 <b>파일 앱에서 고르기</b>로 불러오세요.</li>
           </ul>

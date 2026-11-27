@@ -74,6 +74,7 @@ body {
   overflow-wrap: anywhere;
 }
 [hidden] { display: none !important; }
+.file-input { position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 img { max-width: 100%; }
 button, input, select { font: inherit; color: inherit; }
 h1, h2, h3, h4, p { margin: 0; }
