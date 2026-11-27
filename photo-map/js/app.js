@@ -8,6 +8,11 @@
   const { $, $$, esc } = U;
   const NAMES = PM.maps.NAMES;
   const OSM_AUTO_LIMIT = 30;   // OpenStreetMap 주소를 한 번에 자동으로 찾는 최대 장소 수
+  // 저장·백업 기록 검사 규칙 (화면에 넣는 값이 HTML을 깨뜨리지 못하게 해요)
+  const ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
+  const TAKEN_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+  const THUMB_RE = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+  const GEO_KEY_RE = /^-?\d{1,3}\.\d{4},-?\d{1,3}\.\d{4}$/;
   const DAY_COLORS = ['#e4572e', '#2667ff', '#c98200', '#8e44ad', '#0f9d76', '#d81b60', '#4f7f12', '#0081a7', '#a65a2e', '#5b5bd6'];
   const DATE_SRC_LABEL = {
     'exif-modified': '수정 시각 기준',
@@ -108,6 +113,9 @@
     }
   }
 
+  // 속성 값으로 요소 찾기 (값에 따옴표가 있어도 안전하게)
+  const bySel = (name, value) => `[${name}="${CSS.escape(String(value))}"]`;
+
   // ───────── 장소 이름과 주소 ─────────
   function geoOf(v) { return PM.geo.get(v.lat, v.lng); }
 
@@ -137,9 +145,9 @@
   }
 
   function thumbHTML(p, cls, tint) {
-    if (p && p.thumb) return `<img class="${cls}" src="${p.thumb}" alt="" loading="lazy" decoding="async">`;
+    if (p && p.thumb) return `<img class="${esc(cls)}" src="${esc(p.thumb)}" alt="" loading="lazy" decoding="async">`;
     const heic = p && PM.exif.isHeic(p.name);
-    return `<span class="${cls} thumb-ph" style="--ph:${tint || 'var(--muted)'}" aria-hidden="true"><svg class="ic"><use href="#i-image"/></svg>${heic ? '<small>HEIC</small>' : ''}</span>`;
+    return `<span class="${esc(cls)} thumb-ph" style="--ph:${esc(tint || 'var(--muted)')}" aria-hidden="true"><svg class="ic"><use href="#i-image"/></svg>${heic ? '<small>HEIC</small>' : ''}</span>`;
   }
 
   function dateSrcBadge(p) {
@@ -222,10 +230,10 @@
       ? `<ol class="visits">${d.visits.map((v) => visitHTML(v, d)).join('')}</ol>`
       : '';
     const unloc = d.unlocated.length
-      ? `<button class="unlocated" type="button" data-act="unloc" data-day="${d.key}"><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg><span>위치 정보 없는 사진 ${d.unlocated.length}장</span></button>`
+      ? `<button class="unlocated" type="button" data-act="unloc" data-day="${esc(d.key)}"><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg><span>위치 정보 없는 사진 ${d.unlocated.length}장</span></button>`
       : '';
-    return `<article class="day${selected ? ' is-selected' : ''}" data-day="${d.key}" style="--day:${d.color}">
-      <button class="day-head" type="button" data-act="day" data-day="${d.key}"${d.visits.length ? '' : ' aria-disabled="true"'}>
+    return `<article class="day${selected ? ' is-selected' : ''}" data-day="${esc(d.key)}" style="--day:${esc(d.color)}">
+      <button class="day-head" type="button" data-act="day" data-day="${esc(d.key)}"${d.visits.length ? '' : ' aria-disabled="true"'}>
         <span class="day-date"><span class="day-dot" aria-hidden="true"></span>${esc(U.fmtDayLong(d.key))}</span>
         <span class="day-meta">${meta}</span>
       </button>
@@ -237,11 +245,11 @@
     const g = geoOf(v);
     const rep = v.photos.find((p) => p.thumb) || v.photos[0];
     const active = S.view.visit === v.id;
-    return `<li><button class="visit${active ? ' is-active' : ''}" type="button" data-act="visit" data-id="${v.id}">
+    return `<li><button class="visit${active ? ' is-active' : ''}" type="button" data-act="visit" data-id="${esc(v.id)}">
       <span class="visit-n" aria-hidden="true">${v.n}</span>
       <span class="visit-body">
-        <span class="visit-title" data-label="${v.id}">${esc(placeTitle(v, g))}</span>
-        <span class="visit-sub" data-sub="${v.id}">${esc(visitSub(v, g))}</span>
+        <span class="visit-title" data-label="${esc(v.id)}">${esc(placeTitle(v, g))}</span>
+        <span class="visit-sub" data-sub="${esc(v.id)}">${esc(visitSub(v, g))}</span>
       </span>
       ${thumbHTML(rep, 'visit-thumb', d.color)}
     </button></li>`;
@@ -285,7 +293,7 @@
         .sort((a, b) => (a[0] < b[0] ? 1 : -1))
         .map(([day, vid]) => {
           const d = S.dayMap.get(day);
-          return `<button class="chip" type="button" data-act="visit" data-id="${vid}" style="--day:${d ? d.color : 'var(--accent)'}">${esc(U.fmtDayShort(day))}</button>`;
+          return `<button class="chip" type="button" data-act="visit" data-id="${esc(vid)}" style="--day:${esc(d ? d.color : 'var(--accent)')}">${esc(U.fmtDayShort(day))}</button>`;
         }).join('');
       return `<article class="region">
         <div class="region-head"><h3>${esc(r.name)}</h3><span>${r.days.size}일 · 사진 ${r.photos}장</span></div>
@@ -308,25 +316,25 @@
     const ext = (href) => /^https?:/.test(href) ? ' target="_blank" rel="noopener"' : '';
     S.detail = { kind: 'visit', id: v.id };
     $('#viewDetail').innerHTML = `
-      <div class="detail" style="--day:${d.color}">
+      <div class="detail" style="--day:${esc(d.color)}">
         <div class="detail-top">
           <button class="btn btn-ghost" type="button" data-act="back"><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg><span>목록</span></button>
           <div class="detail-steps">
-            <button class="btn btn-icon" type="button" data-act="visit" data-id="${prev ? prev.id : ''}" ${prev ? '' : 'disabled'} aria-label="이전 장소" title="이전 장소"><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg></button>
+            <button class="btn btn-icon" type="button" data-act="visit" data-id="${esc(prev ? prev.id : '')}" ${prev ? '' : 'disabled'} aria-label="이전 장소" title="이전 장소"><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg></button>
             <span>${idx + 1} / ${d.visits.length}</span>
-            <button class="btn btn-icon" type="button" data-act="visit" data-id="${next ? next.id : ''}" ${next ? '' : 'disabled'} aria-label="다음 장소" title="다음 장소"><svg class="ic" aria-hidden="true"><use href="#i-right"/></svg></button>
+            <button class="btn btn-icon" type="button" data-act="visit" data-id="${esc(next ? next.id : '')}" ${next ? '' : 'disabled'} aria-label="다음 장소" title="다음 장소"><svg class="ic" aria-hidden="true"><use href="#i-right"/></svg></button>
           </div>
         </div>
         <div class="detail-head">
           <span class="visit-n" aria-hidden="true">${v.n}</span>
           <div>
-            <h2 class="detail-title" data-label="${v.id}">${esc(placeTitle(v, g))}</h2>
+            <h2 class="detail-title" data-label="${esc(v.id)}">${esc(placeTitle(v, g))}</h2>
             <p class="detail-when"><svg class="ic" aria-hidden="true"><use href="#i-calendar"/></svg><span>${esc(U.fmtDayLong(v.day))}</span> <b>${esc(U.timeRange(v.start, v.end))}</b></p>
           </div>
         </div>
         <dl class="facts">
-          <div><dt>주소</dt><dd data-addr="${v.id}">${esc(addrText(v, g))}</dd></div>
-          <div><dt>좌표</dt><dd><span class="mono">${coord}</span><button class="btn btn-mini" type="button" data-act="copy" data-text="${coord}">복사</button></dd></div>
+          <div><dt>주소</dt><dd data-addr="${esc(v.id)}">${esc(addrText(v, g))}</dd></div>
+          <div><dt>좌표</dt><dd><span class="mono">${coord}</span><button class="btn btn-mini" type="button" data-act="copy" data-text="${esc(coord)}">복사</button></dd></div>
           <div><dt>사진</dt><dd>${v.photos.length}장${cams.length ? ` · ${esc(cams.join(', '))}` : ''}${oddDate ? dateSrcBadge(oddDate) : ''}</dd></div>
         </dl>
         <div>
@@ -340,7 +348,7 @@
         <div>
           <p class="section-label">이곳에서 찍은 사진</p>
           <div class="grid" style="margin-top:8px">
-            ${v.photos.map((p, i) => `<button class="grid-item" type="button" data-act="photo" data-ctx="v:${v.id}" data-i="${i}" aria-label="${esc(p.name)} 크게 보기">${thumbHTML(p, 'grid-img', d.color)}<span class="grid-time">${esc(U.fmtTime(p.taken))}</span></button>`).join('')}
+            ${v.photos.map((p, i) => `<button class="grid-item" type="button" data-act="photo" data-ctx="v:${esc(v.id)}" data-i="${i}" aria-label="${esc(p.name)} 크게 보기">${thumbHTML(p, 'grid-img', d.color)}<span class="grid-time">${esc(U.fmtTime(p.taken))}</span></button>`).join('')}
           </div>
         </div>
         ${g && g.src === 'osm' ? '<p class="attr">주소 정보 © OpenStreetMap 기여자 (Nominatim)</p>' : ''}
@@ -352,7 +360,7 @@
     const d = S.dayMap.get(dayKey);
     S.detail = { kind: 'unlocated', day: dayKey };
     $('#viewDetail').innerHTML = `
-      <div class="detail" style="--day:${d.color}">
+      <div class="detail" style="--day:${esc(d.color)}">
         <div class="detail-top">
           <button class="btn btn-ghost" type="button" data-act="back"><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg><span>목록</span></button>
         </div>
@@ -362,7 +370,7 @@
         </div>
         <p class="hint">이 사진들에는 촬영 위치가 들어 있지 않아서 지도에 표시하지 못했어요. 촬영 날짜와 시각만 보여드려요.</p>
         <div class="grid">
-          ${d.unlocated.map((p, i) => `<button class="grid-item" type="button" data-act="photo" data-ctx="u:${dayKey}" data-i="${i}" aria-label="${esc(p.name)} 크게 보기">${thumbHTML(p, 'grid-img', d.color)}<span class="grid-time">${esc(U.fmtTime(p.taken))}</span></button>`).join('')}
+          ${d.unlocated.map((p, i) => `<button class="grid-item" type="button" data-act="photo" data-ctx="u:${esc(dayKey)}" data-i="${i}" aria-label="${esc(p.name)} 크게 보기">${thumbHTML(p, 'grid-img', d.color)}<span class="grid-time">${esc(U.fmtTime(p.taken))}</span></button>`).join('')}
         </div>
         <button class="link" type="button" data-act="tips" style="justify-self:start">사진에 위치가 안 나올 때 해결 방법</button>
       </div>`;
@@ -378,7 +386,7 @@
   }
 
   function scrollToDay(key) {
-    const el = $(`#panelDays .day[data-day="${key}"]`);
+    const el = $(`#panelDays .day${bySel('data-day', key)}`);
     if (el && S.screen === 'list' && S.tab === 'days') el.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
@@ -639,9 +647,9 @@
   function updateVisitText(v) {
     const g = geoOf(v);
     const title = placeTitle(v, g);
-    for (const el of $$(`[data-label="${v.id}"]`)) el.textContent = title;
-    for (const el of $$(`[data-sub="${v.id}"]`)) el.textContent = visitSub(v, g);
-    const addr = $(`[data-addr="${v.id}"]`);
+    for (const el of $$(bySel('data-label', v.id))) el.textContent = title;
+    for (const el of $$(bySel('data-sub', v.id))) el.textContent = visitSub(v, g);
+    const addr = $(bySel('data-addr', v.id));
     if (addr) addr.textContent = addrText(v, g);
   }
 
@@ -663,10 +671,15 @@
   }
 
   // ───────── 사진 불러오기 ─────────
+  // 저장된 기록이나 백업 파일의 기록이 안전한 모양인지 확인해요.
+  // id는 영문·숫자·_·- 만, 날짜는 정해진 형식만, 좌표는 숫자 범위 안만 받아요.
   function validRecord(p) {
-    return !!p && typeof p.id === 'string' && typeof p.taken === 'string' &&
-      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(p.taken) &&
-      (p.lat == null || (Number.isFinite(p.lat) && Number.isFinite(p.lng)));
+    return !!p && typeof p === 'object' &&
+      typeof p.id === 'string' && ID_RE.test(p.id) &&
+      typeof p.taken === 'string' && TAKEN_RE.test(p.taken) &&
+      (p.lat == null
+        ? p.lng == null
+        : (Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180));
   }
 
   function sanitizeRecord(p) {
@@ -686,7 +699,8 @@
       make: String(p.make || '').slice(0, 80),
       model: String(p.model || '').slice(0, 80),
       orientation: num(p.orientation) || 1,
-      thumb: typeof p.thumb === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(p.thumb) ? p.thumb : null,
+      // 미리보기는 문자열 전체가 base64 그림 주소일 때만 받아요. (앞부분만 맞는 값은 버려요)
+      thumb: typeof p.thumb === 'string' && THUMB_RE.test(p.thumb) ? p.thumb : null,
       addedAt: num(p.addedAt) || Date.now()
     };
   }
@@ -900,9 +914,13 @@
     }
     if (S.sample) clearSample(false);
     const known = new Set(S.photos.map((p) => p.id));
-    const add = data.photos.filter(validRecord).map(sanitizeRecord).filter((p) => !known.has(p.id));
+    const valid = data.photos.filter(validRecord);
+    const rejected = data.photos.length - valid.length;
+    const add = valid.map(sanitizeRecord).filter((p) => !known.has(p.id));
     const geo = (Array.isArray(data.geo) ? data.geo : [])
-      .filter((g) => g && typeof g.key === 'string' && Number.isFinite(g.lat) && Number.isFinite(g.lng) && typeof g.full === 'string')
+      .filter((g) => g && typeof g.key === 'string' && GEO_KEY_RE.test(g.key) &&
+        Number.isFinite(g.lat) && Number.isFinite(g.lng) && Math.abs(g.lat) <= 90 && Math.abs(g.lng) <= 180 &&
+        typeof g.full === 'string')
       .map((g) => ({
         key: g.key.slice(0, 40), lat: g.lat, lng: g.lng, full: g.full.slice(0, 300),
         name: String(g.name || '').slice(0, 120), short: String(g.short || '').slice(0, 160),
@@ -924,7 +942,11 @@
     rebuild();
     renderAll();
     drawMap(true);
-    toast(`백업에서 사진 기록 ${add.length}장을 합쳤어요.` + (data.photos.length - add.length ? ` (이미 있는 ${data.photos.length - add.length}장 제외)` : ''), 4200);
+    const dupCount = valid.length - add.length;
+    toast(`백업에서 사진 기록 ${add.length}장을 합쳤어요.` + (dupCount ? ` (이미 있는 ${dupCount}장 제외)` : ''), 4200);
+    if (rejected) {
+      notice('badbackup', `백업 파일에서 형식이 올바르지 않은 기록 ${rejected}개는 안전을 위해 불러오지 않았어요.`, { tone: 'warn' });
+    }
     queueAddresses();
   }
 
@@ -1036,7 +1058,7 @@
   // ───────── 알림 / 진행 / 토스트 ─────────
   function notice(id, text, opts) {
     const { tone = 'info', actions = [] } = opts || {};
-    let el = $(`#notices [data-notice="${id}"]`);
+    let el = $(`#notices ${bySel('data-notice', id)}`);
     if (!el) {
       el = document.createElement('div');
       el.dataset.notice = id;
@@ -1047,11 +1069,11 @@
     el.innerHTML =
       `<svg class="ic" aria-hidden="true"><use href="#${tone === 'warn' ? 'i-warn' : 'i-info'}"/></svg>` +
       `<div class="notice-body"><p>${esc(text)}</p>` +
-      (actions.length ? `<div class="notice-actions">${actions.map((a) => `<button class="btn btn-mini" type="button" data-act="${a.act}">${esc(a.label)}</button>`).join('')}</div>` : '') +
-      `</div><button class="notice-close" type="button" data-act="notice-close" data-id="${id}" aria-label="알림 닫기"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button>`;
+      (actions.length ? `<div class="notice-actions">${actions.map((a) => `<button class="btn btn-mini" type="button" data-act="${esc(a.act)}">${esc(a.label)}</button>`).join('')}</div>` : '') +
+      `</div><button class="notice-close" type="button" data-act="notice-close" data-id="${esc(id)}" aria-label="알림 닫기"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button>`;
   }
   function dismissNotice(id) {
-    const el = $(`#notices [data-notice="${id}"]`);
+    const el = $(`#notices ${bySel('data-notice', id)}`);
     if (el) el.remove();
   }
 
@@ -1337,8 +1359,13 @@
     }
     try {
       const [photos, geo] = await Promise.all([PM.store.all('photos'), PM.store.all('geo')]);
-      S.photos = (photos || []).filter(validRecord);
-      PM.geo.load(geo);
+      const list = photos || [];
+      S.photos = list.filter(validRecord).map(sanitizeRecord);
+      const skipped = list.length - S.photos.length;
+      if (skipped) {
+        notice('badstore', `저장된 기록 중 형식이 올바르지 않은 ${skipped}개는 안전을 위해 표시하지 않았어요. (지우지는 않았어요)`, { tone: 'warn' });
+      }
+      PM.geo.load((geo || []).filter((g) => g && typeof g.key === 'string' && GEO_KEY_RE.test(g.key)));
     } catch (e) {
       console.warn('저장된 기록을 읽지 못했어요:', e);
     }

@@ -2,6 +2,12 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<!--
+  보안 정책(CSP): 페이지 안에 끼워 넣은 스크립트(onerror= 같은 인라인 코드)는 실행하지 않아요.
+  지도 SDK(카카오·네이버·구글)가 다른 https 주소에서 스크립트를 더 불러오므로 https는 허용해요.
+  'unsafe-eval'과 blob:은 구글 지도 CSP 가이드의 예시를 따랐어요.
+-->
+<meta http-equiv="Content-Security-Policy" content="script-src 'self' https: 'unsafe-eval' blob:; object-src 'none'; base-uri 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>사진 발자국</title>
 <meta name="description" content="사진 속 촬영 위치(GPS)와 날짜를 읽어서 언제 어디에 다녀왔는지 지도에 보여주는 웹앱">

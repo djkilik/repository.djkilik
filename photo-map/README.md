@@ -133,13 +133,28 @@ PC에서 시험만 해 보려면, 이 폴더에서 `python -m http.server 8000` 
 
 ---
 
-## 4. 개인정보
+## 4. 개인정보와 보안
 
 - 사진 파일은 브라우저 안에서만 읽어요. 어디에도 올리지 않아요.
 - 브라우저에는 날짜·좌표·작은 미리보기(약 200px)만 저장해요. 사진 원본은 저장하지 않아요.
 - 주소를 찾을 때는 **장소의 좌표만** 지도 서비스로 보내요. 설정에서 "주소 자동 찾기"를 끄면 보내지 않아요.
 - 지도 키는 이 브라우저의 저장소(localStorage)에만 저장돼요.
   지도용 키는 웹페이지에 드러나는 키라서, 꼭 **사이트 주소 제한** 을 걸어 두세요.
+
+**백업 파일과 악성 코드 막기**
+
+- 백업 파일의 기록은 정해진 모양일 때만 받아요.
+  - 기록 번호(id): 영문·숫자·`_`·`-` 만
+  - 날짜: `YYYY-MM-DD HH:MM:SS` 형식만
+  - 좌표: 숫자 범위 안만
+  - 미리보기: 문자열 **전체**가 base64 그림 주소일 때만
+- 모양이 이상한 기록은 불러오지 않고, 몇 개를 건너뛰었는지 알려줘요.
+- 화면에 넣는 모든 값은 HTML로 해석되지 않게 바꿔서(이스케이프) 넣어요.
+- 앱을 열 때 저장된 기록도 같은 검사를 다시 해요.
+  이상한 기록은 화면에 보여주지 않지만 **지우지는 않아요.** (설정 → 모든 기록 지우기로만 지워져요)
+- 페이지에 보안 정책(CSP)을 넣어서, 누가 끼워 넣은 인라인 스크립트(`onerror=` 같은 코드)는 실행되지 않아요.
+  지도 SDK가 다른 https 주소(예: 카카오의 `kakaocdn.net`)에서 스크립트를 더 불러오므로 https 스크립트는 허용했어요.
+- 그래도 **모르는 사람이 보낸 백업 파일은 불러오지 마세요.**
 
 ---
 
@@ -227,6 +242,14 @@ photo-map/
 - 카카오·구글 키가 잘못됐을 때 기본 지도로 바꿔 보여주고 안내하기
 - 휴대폰(390px)·아주 좁은 화면(320px)에서 가로로 넘치거나 잘리는 글자 없음, 어두운 화면 모드
 
+보안 테스트로 확인한 것 (12개 항목 모두 통과)
+
+- 공격용 백업 파일(이상한 id, 미리보기 주소에 끼운 코드, 주소 이름에 넣은 HTML)을 불러와도 스크립트가 실행되지 않아요.
+  같은 파일을 고치기 전 버전에 넣으면 실행됐어요. 테스트가 실제 공격을 잡는다는 뜻이에요.
+- 저장소에 이미 들어간 공격 기록도 실행되지 않고, 지워지지도 않아요.
+- 정상 기록은 그대로 불러와요.
+- CSP가 인라인 이벤트 코드를 막고, 구글 지도 SDK는 CSP 아래에서도 막히지 않고 불러와져요.
+
 아직 확인하지 못한 것 (테스트 환경에서 지도 서버 접속이 막혀 있었어요)
 
 - **실제 키로 카카오맵·네이버 지도·구글 지도를 띄우는 것** — 공식 사용법대로 만들었지만, GitHub Pages에 올린 뒤 처음 한 번 직접 확인해 주세요.
@@ -272,6 +295,11 @@ OpenStreetMap
 
 GitHub Pages
 - 게시 소스 설정: https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
+
+보안
+- OWASP XSS 방지 치트시트: https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
+- Google Maps JavaScript API CSP 가이드 (`https:`, `'unsafe-eval'`, `blob:` 예시): https://developers.google.com/maps/documentation/javascript/content-security-policy
+- 카카오맵 리소스 도메인 추가(kakaocdn.net)와 CSP 안내: https://devtalk.kakao.com/t/csp/150541
 
 ## 라이선스
 
