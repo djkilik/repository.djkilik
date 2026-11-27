@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>네비 3사 비교</title>
+<meta name="theme-color" content="#111827">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --text: #111827; --sub: #6b7280; --line: #e5e7eb;
+    --accent: #2563eb;
+    --tmap: #e5232e; --naver: #03a94d; --kakao: #f2b600;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --card: #1a1d24; --text: #f3f4f6; --sub: #9ca3af; --line: #2c313a; --accent: #60a5fa; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    word-break: keep-all; overflow-wrap: anywhere; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 4px 0 12px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  .field { display: flex; align-items: center; gap: 8px; padding: 6px 0; position: relative; }
+  .field + .field { border-top: 1px solid var(--line); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .field input { flex: 1; min-width: 0; font-size: 16px; padding: 10px; border: 0; background: transparent; color: var(--text); outline: none; }
+  .btn { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 10px; padding: 9px 12px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; width: 100%; margin-top: 10px; font-size: 16px; padding: 12px; font-weight: 600; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .sugg { position: absolute; left: 0; right: 0; top: 100%; z-index: 1000; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.15); max-height: 300px; overflow: auto; }
+  .sugg div { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--line); }
+  .sugg div:last-child { border-bottom: 0; }
+  .sugg div:hover { background: var(--bg); }
+  .sugg b { display: block; font-size: 15px; }
+  .sugg small { color: var(--sub); }
+  #map { height: 320px; border-radius: 14px; margin: 12px 0; border: 1px solid var(--line); }
+  .notice { font-size: 13px; color: var(--sub); margin: 8px 2px; line-height: 1.5; }
+  .notice.warn { color: #b45309; }
+  .summary { font-size: 15px; line-height: 1.6; margin: 12px 2px; }
+  .cards { display: grid; gap: 10px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-left: 6px solid var(--c); border-radius: 14px; padding: 12px 14px; }
+  .card.best { box-shadow: 0 0 0 2px var(--c) inset; }
+  .card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .name { font-weight: 700; font-size: 17px; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); white-space: nowrap; }
+  .badge.win { background: var(--c); color: #fff; border-color: var(--c); }
+  .big { font-size: 26px; font-weight: 800; margin: 6px 0 2px; }
+  .diff { font-size: 14px; color: var(--sub); font-weight: 500; margin-left: 6px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; color: var(--sub); }
+  .stats span b { color: var(--text); font-weight: 600; }
+  .card .open { margin-top: 10px; display: inline-block; text-decoration: none; }
+  .err { color: #dc2626; font-size: 14px; margin-top: 6px; }
+  footer { font-size: 12px; color: var(--sub); margin: 24px 2px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🚗 네비 3사 경로 비교</h1>
+
+  <div class="panel">
+    <div class="field">
+      <span class="dot" style="background:#2563eb"></span>
+      <input id="from" placeholder="출발지 (비우면 현재 위치)" autocomplete="off">
+      <button class="btn" id="gps" title="현재 위치">📍 현재 위치</button>
+      <div class="sugg" id="fromSugg" hidden></div>
+    </div>
+    <div class="field">
+      <span class="dot" style="background:#dc2626"></span>
+      <input id="to" placeholder="도착지 검색 (예: 강남역)" autocomplete="off">
+      <div class="sugg" id="toSugg" hidden></div>
+    </div>
+    <button class="btn primary" id="go" disabled>경로 비교하기</button>
+  </div>
+
+  <div class="notice warn" id="demoNote" hidden></div>
+  <div id="map"></div>
+  <div class="summary" id="summary"></div>
+  <div class="cards" id="cards"></div>
+
+  <footer>
+    결과는 각 사의 공개 API(TMAP API · 네이버 클라우드 Directions 5 · 카카오모빌리티 길찾기)
+    기준이며, 실제 앱 안내와 조금 다를 수 있습니다. 실시간 교통 상황에 따라 매번 달라질 수 있습니다.<br>
+    지도 © OpenStreetMap contributors
+  </footer>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script>
+const P = {
+  tmap:  { label: 'TMAP',    color: getCss('--tmap') },
+  naver: { label: '네이버',  color: getCss('--naver') },
+  kakao: { label: '카카오',  color: getCss('--kakao') },
+};
+function getCss(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+const state = { from: null, to: null, me: null };
+const $ = id => document.getElementById(id);
+
+// 지도
+// 지도 (Leaflet 로드 실패 시에도 비교 기능은 동작)
+const noop = () => {};
+let map = { setView: noop, fitBounds: noop };
+let layers = { clearLayers: noop };
+if (window.L) {
+  map = L.map('map', { zoomControl: true }).setView([37.5665, 126.978], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap',
+  }).addTo(map);
+  layers = L.layerGroup().addTo(map);
+} else {
+  document.getElementById('map').hidden = true;
+}
+
+// 데모 모드 안내
+fetch('/api/config').then(r => r.json()).then(({ providers }) => {
+  const off = Object.entries(providers).filter(([, ok]) => !ok).map(([p]) => P[p].label);
+  if (off.length) {
+    $('demoNote').hidden = false;
+    $('demoNote').textContent =
+      `⚠️ ${off.join(', ')} API 키가 없어 해당 결과는 가상의 데모 데이터입니다. ` +
+      `README의 안내대로 .env 파일에 키를 넣으면 실제 경로가 표시됩니다.`;
+  }
+});
+
+// 현재 위치
+function locate() {
+  if (!navigator.geolocation) return;
+  $('gps').disabled = true;
+  navigator.geolocation.getCurrentPosition(pos => {
+    state.me = { name: '현재 위치', x: pos.coords.longitude, y: pos.coords.latitude };
+    state.from = state.me;
+    $('from').value = '';
+    $('from').placeholder = '📍 현재 위치';
+    $('gps').disabled = false;
+    map.setView([state.me.y, state.me.x], 13);
+    updateGo();
+  }, () => {
+    $('gps').disabled = false;
+    $('from').placeholder = '출발지를 검색하세요 (위치 권한 없음)';
+  }, { enableHighAccuracy: true, timeout: 8000 });
+}
+$('gps').onclick = locate;
+locate();
+
+// 검색 자동완성
+function bindSearch(inputId, suggId, key) {
+  const input = $(inputId), box = $(suggId);
+  let timer;
+  input.addEventListener('input', () => {
+    state[key] = key === 'from' ? (input.value ? null : state.me) : null;
+    updateGo();
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (!q) { box.hidden = true; return; }
+    timer = setTimeout(async () => {
+      const near = state.me ? `&x=${state.me.x}&y=${state.me.y}` : '';
+      const { places } = await fetch(`/api/search?q=${encodeURIComponent(q)}${near}`).then(r => r.json());
+      box.innerHTML = '';
+      if (!places.length) { box.innerHTML = '<div><small>검색 결과가 없습니다</small></div>'; box.hidden = false; return; }
+      for (const p of places) {
+        const d = document.createElement('div');
+        d.innerHTML = `<b></b><small></small>`;
+        d.querySelector('b').textContent = p.name;
+        d.querySelector('small').textContent = p.address || '';
+        d.onclick = () => { state[key] = p; input.value = p.name; box.hidden = true; updateGo(); if (key === 'to') compare(); };
+        box.appendChild(d);
+      }
+      box.hidden = false;
+    }, 250);
+  });
+  input.addEventListener('blur', () => setTimeout(() => (box.hidden = true), 200));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { const f = box.querySelector('div'); if (f && !box.hidden) f.click(); } });
+}
+bindSearch('from', 'fromSugg', 'from');
+bindSearch('to', 'toSugg', 'to');
+
+function updateGo() { $('go').disabled = !(state.from && state.to); }
+$('go').onclick = compare;
+
+// 비교
+async function compare() {
+  if (!state.from || !state.to) return;
+  const { from: s, to: e } = state;
+  $('go').disabled = true; $('go').textContent = '경로 찾는 중…';
+  $('summary').textContent = ''; $('cards').innerHTML = '';
+  try {
+    const { results, error } = await fetch(`/api/routes?sx=${s.x}&sy=${s.y}&ex=${e.x}&ey=${e.y}`).then(r => r.json());
+    if (error) throw new Error(error);
+    render(results, s, e);
+  } catch (err) {
+    $('summary').textContent = '오류: ' + err.message;
+  } finally {
+    $('go').textContent = '경로 비교하기'; updateGo();
+  }
+}
+
+function render(results, s, e) {
+  layers.clearLayers();
+  const ok = results.filter(r => r.ok);
+  const minT = Math.min(...ok.map(r => r.durationSec));
+  const minD = Math.min(...ok.map(r => r.distanceM));
+  const minToll = Math.min(...ok.map(r => r.tollWon ?? Infinity));
+
+  if (window.L) drawMap(ok, minT, s, e);
+
+  // 요약
+  if (ok.length) {
+    const fastest = ok.find(r => r.durationSec === minT);
+    const slowest = ok.reduce((a, b) => (a.durationSec > b.durationSec ? a : b));
+    const gap = slowest.durationSec - minT;
+    $('summary').innerHTML = gap < 60
+      ? `세 네비의 예상 시간이 <b>거의 같습니다</b> (1분 이내 차이).`
+      : `<b>${P[fastest.provider].label}</b> 경로가 가장 빠릅니다.<br>가장 느린 경로(${P[slowest.provider].label})보다 <b>${fmtTime(gap)}</b> 빨라요.`;
+  }
+
+  // 카드 — 빠른 순
+  const order = [...results].sort((a, b) => (a.ok ? a.durationSec : 1e12) - (b.ok ? b.durationSec : 1e12));
+  for (const r of order) {
+    const meta = P[r.provider];
+    const card = document.createElement('div');
+    card.className = 'card' + (r.ok && r.durationSec === minT ? ' best' : '');
+    card.style.setProperty('--c', meta.color);
+    if (!r.ok) {
+      card.innerHTML = `<div class="card-head"><span class="name">${meta.label}</span></div><div class="err"></div>`;
+      card.querySelector('.err').textContent = '경로를 가져오지 못했습니다: ' + r.error;
+    } else {
+      const badges = [];
+      if (r.durationSec === minT) badges.push('<span class="badge win">⏱ 가장 빠름</span>');
+      if (r.distanceM === minD) badges.push('<span class="badge">📏 가장 짧음</span>');
+      if (r.tollWon != null && r.tollWon === minToll && ok.some(o => (o.tollWon ?? 0) !== r.tollWon)) badges.push('<span class="badge">💰 통행료 최저</span>');
+      if (r.demo) badges.push('<span class="badge">데모</span>');
+      const diff = r.durationSec - minT;
+      card.innerHTML = `
+        <div class="card-head"><span class="name">${meta.label}</span>${badges.join('')}</div>
+        <div class="big">${fmtTime(r.durationSec)}${diff >= 60 ? `<span class="diff">+${fmtTime(diff)}</span>` : ''}</div>
+        <div class="stats">
+          <span>거리 <b>${(r.distanceM / 1000).toFixed(1)}km</b></span>
+          <span>통행료 <b>${r.tollWon == null ? '-' : won(r.tollWon)}</b></span>
+          ${r.fuelWon ? `<span>유류비 <b>${won(r.fuelWon)}</b></span>` : ''}
+          <span>도착 <b>${arrival(r.durationSec)}</b></span>
+        </div>
+        <a class="btn open" href="${deepLink(r.provider, s, e)}">${meta.label} 앱으로 안내 시작 →</a>`;
+    }
+    $('cards').appendChild(card);
+  }
+}
+
+function drawMap(ok, minT, s, e) {
+  // (지도) 그려서 가장 빠른 경로가 위에 오게
+  const bounds = L.latLngBounds([[s.y, s.x], [e.y, e.x]]);
+  [...ok].sort((a, b) => b.durationSec - a.durationSec).forEach(r => {
+    if (!r.path || !r.path.length) return;
+    const fast = r.durationSec === minT;
+    L.polyline(r.path, { color: P[r.provider].color, weight: fast ? 7 : 5, opacity: fast ? 0.95 : 0.7, dashArray: r.demo ? '8 8' : null })
+      .bindTooltip(`${P[r.provider].label} · ${fmtTime(r.durationSec)}`).addTo(layers);
+    r.path.forEach(pt => bounds.extend(pt));
+  });
+  L.circleMarker([s.y, s.x], { radius: 8, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 1 }).addTo(layers);
+  L.circleMarker([e.y, e.x], { radius: 8, color: '#fff', weight: 3, fillColor: '#dc2626', fillOpacity: 1 }).addTo(layers);
+  map.fitBounds(bounds, { padding: [24, 24] });
+}
+
+// 각 앱 열기 (모바일에 앱이 설치되어 있어야 동작)
+function deepLink(p, s, e) {
+  const name = encodeURIComponent(e.name || '도착지');
+  if (p === 'tmap') return `tmap://route?goalname=${name}&goalx=${e.x}&goaly=${e.y}`;
+  if (p === 'naver') return `nmap://route/car?slat=${s.y}&slng=${s.x}&dlat=${e.y}&dlng=${e.x}&dname=${name}&appname=navcompare`;
+  return `kakaomap://route?sp=${s.y},${s.x}&ep=${e.y},${e.x}&by=CAR`;
+}
+
+function fmtTime(sec) {
+  const m = Math.round(sec / 60);
+  if (m < 60) return `${m}분`;
+  return `${Math.floor(m / 60)}시간 ${m % 60}분`;
+}
+function won(n) { return n === 0 ? '없음' : n.toLocaleString('ko-KR') + '원'; }
+function arrival(sec) {
+  const d = new Date(Date.now() + sec * 1000);
+  return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+</script>
+</body>
+</html>

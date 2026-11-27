@@ -1,0 +1,9 @@
+{
+  "name": "nav-compare",
+  "version": "1.0.0",
+  "description": "TMAP · 네이버 · 카카오 3사 자동차 경로 비교",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}
