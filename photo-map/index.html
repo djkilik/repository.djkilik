@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>사진 발자국</title>
+<meta name="description" content="사진 속 촬영 위치(GPS)와 날짜를 읽어서 언제 어디에 다녀왔는지 지도에 보여주는 웹앱">
+<meta name="theme-color" content="#0d7a6b">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@500;600;700&amp;display=swap">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- 아이콘 모음 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 16l-4.5-4.5L7 19.5"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8z"/><path d="M14 3.5V8h4.5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 19.5h14"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.8-6.5-11a6.5 6.5 0 0 1 13 0c0 5.2-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 3.5H3.5V8M16 3.5h4.5V8M8 20.5H3.5V16M16 20.5h4.5V16"/></symbol>
+    <symbol id="i-shrink" viewBox="0 0 24 24"><path d="M3.5 8H8V3.5M20.5 8H16V3.5M3.5 16H8v4.5M20.5 16H16v4.5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.3v.1"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5.5 15V6a2 2 0 0 1 2-2H15"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8"/></symbol>
+  </defs>
+</svg>
+
+<div class="app" id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="9" fill="var(--accent)"/>
+        <path d="M8 23.5c3-1 4-5 8-5s4.5-3.5 6.5-5" fill="none" stroke="var(--accent-ink)" stroke-width="2.1" stroke-linecap="round" stroke-dasharray="0.1 3.6"/>
+        <circle cx="8" cy="23.5" r="2.3" fill="var(--accent-ink)"/>
+        <path d="M23.5 5.5a4.3 4.3 0 0 1 4.3 4.3c0 3.3-4.3 7.2-4.3 7.2s-4.3-3.9-4.3-7.2a4.3 4.3 0 0 1 4.3-4.3z" fill="var(--accent-ink)"/>
+        <circle cx="23.5" cy="9.8" r="1.6" fill="var(--accent)"/>
+      </svg>
+      <div class="brand-text">
+        <h1>사진 발자국</h1>
+        <p class="brand-sub">사진으로 다녀온 곳 찾기</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" id="btnAdd" type="button">
+        <svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg><span>사진 추가</span>
+      </button>
+      <button class="btn btn-icon" id="btnSettings" type="button" aria-label="설정" title="설정">
+        <svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="mapwrap" id="mapwrap" aria-label="지도">
+    <div id="map" class="map"></div>
+    <div class="map-bar">
+      <div class="map-bar-left">
+        <div class="daynav" id="daynav" hidden>
+          <button class="btn btn-icon btn-float" id="dayPrev" type="button" aria-label="이전 날짜" title="이전 날짜">
+            <svg class="ic" aria-hidden="true"><use href="#i-left"/></svg>
+          </button>
+          <div class="daynav-label" id="dayLabel"></div>
+          <button class="btn btn-icon btn-float" id="dayNext" type="button" aria-label="다음 날짜" title="다음 날짜">
+            <svg class="ic" aria-hidden="true"><use href="#i-right"/></svg>
+          </button>
+        </div>
+        <button class="btn btn-float" id="btnAll" type="button" aria-label="전체 보기" title="전체 보기" hidden>
+          <svg class="ic" aria-hidden="true"><use href="#i-route"/></svg><span class="btn-all-text">전체 보기</span>
+        </button>
+      </div>
+      <div class="map-bar-right">
+        <label class="provider-pick">
+          <span class="sr-only">지도 종류</span>
+          <select id="providerSelect">
+            <option value="kakao">카카오맵</option>
+            <option value="naver">네이버 지도</option>
+            <option value="google">구글 지도</option>
+            <option value="osm">기본 지도</option>
+          </select>
+        </label>
+        <button class="btn btn-icon btn-float only-narrow" id="btnMapSize" type="button" aria-label="지도 크게 보기" title="지도 크게 보기">
+          <svg class="ic" aria-hidden="true"><use href="#i-expand"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="map-msg" id="mapMsg" role="status" hidden></div>
+  </section>
+
+  <main class="side" id="side">
+    <div class="notices" id="notices"></div>
+
+    <div class="progress" id="progress" hidden>
+      <div class="progress-text"><span id="progressLabel">사진 읽는 중</span><span id="progressCount" class="num"></span></div>
+      <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+    </div>
+
+    <section class="view" id="viewEmpty" hidden>
+      <div class="empty">
+        <svg class="empty-art" viewBox="0 0 320 150" aria-hidden="true">
+          <g fill="none" stroke="var(--line-strong)" stroke-width="1.2">
+            <path d="M10 120c40-30 70-10 110-30s70-60 120-50 60 10 70 0"/>
+            <path d="M10 100c40-30 70-10 110-30s70-60 120-50 60 10 70 0"/>
+            <path d="M10 140c40-30 70-10 110-30s70-60 120-50 60 10 70 0"/>
+          </g>
+          <path d="M48 112c30-6 40-40 80-38s56-18 76-36 50-10 70-6" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.1 9"/>
+          <g>
+            <circle cx="48" cy="112" r="11" fill="var(--pin-1)" stroke="var(--surface)" stroke-width="3"/>
+            <text x="48" y="116.5" text-anchor="middle" class="empty-num">1</text>
+            <circle cx="160" cy="70" r="11" fill="var(--pin-2)" stroke="var(--surface)" stroke-width="3"/>
+            <text x="160" y="74.5" text-anchor="middle" class="empty-num">2</text>
+            <circle cx="274" cy="32" r="11" fill="var(--pin-3)" stroke="var(--surface)" stroke-width="3"/>
+            <text x="274" y="36.5" text-anchor="middle" class="empty-num">3</text>
+          </g>
+        </svg>
+        <h2>사진으로 다녀온 곳을 찾아드려요</h2>
+        <p>사진 파일에 담긴 촬영 위치(GPS)와 촬영 날짜를 읽어서, 날짜별로 어디에 있었는지 지도에 보여줘요.</p>
+        <div class="empty-actions">
+          <button class="btn btn-primary btn-lg" type="button" data-act="pick-photos">
+            <svg class="ic" aria-hidden="true"><use href="#i-image"/></svg><span>사진 고르기</span>
+          </button>
+          <button class="btn btn-lg hide-touch" type="button" data-act="pick-folder">
+            <svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg><span>폴더 통째로</span>
+          </button>
+        </div>
+        <button class="btn btn-ghost" type="button" data-act="sample">예시로 먼저 둘러보기</button>
+        <ul class="empty-points">
+          <li><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span>사진은 이 기기 안에서만 읽어요. 어디에도 올리지 않아요.</span></li>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span>휴대폰에서는 사진을 고를 때 위치가 빠질 수 있어요. <button class="link" type="button" data-act="tips">해결 방법 보기</button></span></li>
+          <li class="hide-touch"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg><span>사진이나 폴더를 이 창에 끌어다 놓아도 돼요.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="view" id="viewList" hidden>
+      <div class="summary" id="summary"></div>
+      <div class="tabs" role="tablist" aria-label="보기 방식">
+        <button class="tab" role="tab" id="tabDays" type="button" aria-selected="true" aria-controls="panelDays">날짜별</button>
+        <button class="tab" role="tab" id="tabPlaces" type="button" aria-selected="false" aria-controls="panelPlaces">지역별</button>
+      </div>
+      <div class="panel" id="panelDays" role="tabpanel" aria-labelledby="tabDays"></div>
+      <div class="panel" id="panelPlaces" role="tabpanel" aria-labelledby="tabPlaces" hidden></div>
+    </section>
+
+    <section class="view" id="viewDetail" hidden></section>
+  </main>
+</div>
+
+<input type="file" id="filePhotos" accept="image/*,.heic,.heif,.HEIC,.HEIF" multiple hidden>
+<input type="file" id="fileAny" multiple hidden>
+<input type="file" id="fileFolder" webkitdirectory multiple hidden>
+<input type="file" id="fileBackup" accept=".json,application/json" hidden>
+
+<div class="drop" id="drop" hidden>
+  <div class="drop-card">
+    <svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg>
+    <p>여기에 놓으면 사진을 읽어요</p>
+  </div>
+</div>
+
+<!-- 사진 불러오기 -->
+<dialog class="sheet" id="addDialog" aria-labelledby="addTitle">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="addTitle">사진 불러오기</h2>
+      <button class="btn btn-icon" type="button" data-close aria-label="닫기"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button>
+    </header>
+    <div class="sheet-body">
+      <div class="add-options">
+        <button class="add-opt" type="button" data-act="pick-photos">
+          <svg class="ic" aria-hidden="true"><use href="#i-image"/></svg>
+          <span><b>사진 고르기</b><small>여러 장을 한 번에 고를 수 있어요</small></span>
+        </button>
+        <button class="add-opt hide-touch" type="button" data-act="pick-folder">
+          <svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>
+          <span><b>폴더 통째로</b><small>폴더 안의 사진을 모두 읽어요 (PC 브라우저)</small></span>
+        </button>
+        <button class="add-opt show-touch" type="button" data-act="pick-any">
+          <svg class="ic" aria-hidden="true"><use href="#i-file"/></svg>
+          <span><b>파일 앱에서 고르기</b><small>휴대폰에서 위치가 빠질 때 이 방법을 써 보세요</small></span>
+        </button>
+        <button class="add-opt" type="button" data-act="pick-backup">
+          <svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>
+          <span><b>백업 파일 불러오기</b><small>저장해 둔 기록을 지금 기록에 합쳐요</small></span>
+        </button>
+      </div>
+      <details class="tips" id="tips">
+        <summary>휴대폰 사진에 위치가 안 나올 때</summary>
+        <div class="tips-body">
+          <h3>먼저 확인할 것</h3>
+          <ul>
+            <li>카메라 앱 설정에서 <b>위치 태그(위치 저장)</b>가 켜져 있어야 사진에 위치가 기록돼요.</li>
+            <li>메신저나 SNS로 받은 사진은 위치 정보가 지워져 있을 수 있어요. 원본 사진을 쓰세요.</li>
+          </ul>
+          <h3>아이폰</h3>
+          <ul>
+            <li>사진을 고르는 화면에 <b>옵션</b> 버튼이 보이면 눌러서 <b>위치</b>를 켜고 고르세요.</li>
+            <li>그래도 빠지면 사진 앱에서 공유 → <b>옵션</b>에서 <b>위치</b>를 켜고 <b>파일에 저장</b>한 다음, 여기서 <b>파일 앱에서 고르기</b>로 불러오세요.</li>
+          </ul>
+          <h3>갤럭시 등 안드로이드</h3>
+          <ul>
+            <li>사진 선택 화면 오른쪽 아래에 <b>위치 정보 버튼</b>이 있으면 켜고 고르세요. (최신 안드로이드)</li>
+            <li><b>파일 앱에서 고르기</b>로 내 파일 → DCIM → Camera 폴더의 사진을 고르면 위치가 남아 있는 경우가 있어요.</li>
+          </ul>
+          <h3>가장 확실한 방법</h3>
+          <ul>
+            <li>사진을 PC로 옮긴 뒤, PC 브라우저에서 <b>폴더 통째로</b> 불러오세요.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </div>
+</dialog>
+
+<!-- 설정 -->
+<dialog class="sheet" id="settingsDialog" aria-labelledby="settingsTitle">
+  <form class="sheet-inner" id="settingsForm" method="dialog">
+    <header class="sheet-head">
+      <h2 id="settingsTitle">설정</h2>
+      <button class="btn btn-icon" type="button" data-close aria-label="닫기"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button>
+    </header>
+    <div class="sheet-body">
+      <section class="set-group">
+        <h3>지도</h3>
+        <div class="providers" role="radiogroup" aria-label="지도 선택">
+          <label class="prov">
+            <input type="radio" name="provider" value="kakao">
+            <span><b>카카오맵 (다음 지도)</b><small>국내 지도가 자세해요 · 무료 키 필요</small></span>
+          </label>
+          <label class="prov">
+            <input type="radio" name="provider" value="naver">
+            <span><b>네이버 지도</b><small>국내 지도가 자세해요 · 네이버 클라우드 키 필요</small></span>
+          </label>
+          <label class="prov">
+            <input type="radio" name="provider" value="google">
+            <span><b>구글 지도</b><small>해외 여행 사진에 좋아요 · 구글 키 필요</small></span>
+          </label>
+          <label class="prov">
+            <input type="radio" name="provider" value="osm">
+            <span><b>기본 지도 (OpenStreetMap)</b><small>키 없이 바로 쓸 수 있어요</small></span>
+          </label>
+        </div>
+
+        <div class="keybox" data-provider="kakao">
+          <label for="keyKakao">카카오 <b>JavaScript 키</b></label>
+          <input id="keyKakao" name="keyKakao" type="text" autocomplete="off" spellcheck="false" inputmode="latin" placeholder="예: 1a2b3c4d5e6f…">
+          <details>
+            <summary>키 받는 방법</summary>
+            <ol>
+              <li><a href="https://developers.kakao.com/console/app" target="_blank" rel="noopener">카카오 디벨로퍼스</a>에 로그인해서 애플리케이션을 하나 만들어요.</li>
+              <li>앱 키 중 <b>JavaScript 키</b>를 복사해 위 칸에 붙여 넣어요.</li>
+              <li>JavaScript 키의 <b>JavaScript SDK 도메인</b>(예전 메뉴: 플랫폼 → Web → 사이트 도메인)에 아래 <b>이 사이트 주소</b>를 등록해요.</li>
+              <li><b>카카오맵</b> 메뉴의 사용 설정에서 상태를 <b>ON</b>으로 바꿔요.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="keybox" data-provider="naver">
+          <label for="keyNaver">네이버 <b>Client ID</b> (ncpKeyId)</label>
+          <input id="keyNaver" name="keyNaver" type="text" autocomplete="off" spellcheck="false" inputmode="latin" placeholder="예: abcd1234ef">
+          <details>
+            <summary>키 받는 방법</summary>
+            <ol>
+              <li><a href="https://console.ncloud.com" target="_blank" rel="noopener">네이버 클라우드 플랫폼 콘솔</a>에서 Maps 서비스의 Application을 등록해요.</li>
+              <li>API는 <b>Dynamic Map</b>을 고르고, 주소 찾기를 쓰려면 <b>Reverse Geocoding</b>도 골라요.</li>
+              <li><b>Web 서비스 URL</b>에 아래 <b>이 사이트 주소</b>를 등록해요.</li>
+              <li>인증 정보의 <b>Client ID</b>를 위 칸에 붙여 넣어요.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="keybox" data-provider="google">
+          <label for="keyGoogle">구글 <b>API 키</b></label>
+          <input id="keyGoogle" name="keyGoogle" type="text" autocomplete="off" spellcheck="false" inputmode="latin" placeholder="예: AIza…">
+          <details>
+            <summary>키 받는 방법</summary>
+            <ol>
+              <li><a href="https://console.cloud.google.com/google/maps-apis" target="_blank" rel="noopener">Google Cloud 콘솔</a>에서 <b>Maps JavaScript API</b>를 사용 설정해요. 주소 찾기를 쓰려면 <b>Geocoding API</b>도 켜요.</li>
+              <li>API 키를 만들고, 웹사이트 제한에 아래 <b>이 사이트 주소</b> 뒤에 <code>/*</code>를 붙여 등록해요.</li>
+              <li>보통 결제 계정 연결이 필요해요. 매달 무료 사용량이 있어요.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="origin">
+          <span>이 사이트 주소</span>
+          <code id="originCode"></code>
+          <button class="btn btn-mini" type="button" data-act="copy-origin">복사</button>
+        </div>
+      </section>
+
+      <section class="set-group">
+        <h3>장소와 주소</h3>
+        <label class="switch">
+          <input type="checkbox" id="optAddress">
+          <span class="switch-ui" aria-hidden="true"></span>
+          <span>장소의 주소를 자동으로 찾기</span>
+        </label>
+        <p class="hint">주소를 찾을 때는 장소의 좌표만 지도 서비스로 보내요. 사진 파일은 보내지 않아요.</p>
+        <label class="field" for="optRadius">
+          <span>이 거리 안에서 찍은 사진은 한 장소로 묶기</span>
+          <select id="optRadius">
+            <option value="100">100m</option>
+            <option value="300">300m</option>
+            <option value="1000">1km</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="set-group">
+        <h3>내 기록</h3>
+        <p class="hint" id="storageInfo"></p>
+        <div class="btn-row">
+          <button class="btn" type="button" data-act="export-csv"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><span>표(CSV)로 내보내기</span></button>
+          <button class="btn" type="button" data-act="export-backup"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><span>백업 파일 저장</span></button>
+          <button class="btn" type="button" data-act="pick-backup"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg><span>백업 불러오기</span></button>
+        </div>
+        <div class="danger">
+          <button class="btn btn-danger" type="button" data-act="clear-ask">모든 기록 지우기</button>
+          <div class="danger-confirm" id="clearConfirm" hidden>
+            <p id="clearText"></p>
+            <div class="btn-row">
+              <button class="btn" type="button" data-act="clear-cancel">취소</button>
+              <button class="btn btn-danger-solid" type="button" data-act="clear-do">지우기</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="sheet-foot">
+      <button class="btn" type="button" data-close>취소</button>
+      <button class="btn btn-primary" type="submit" id="btnSaveSettings">저장</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- 사진 크게 보기 -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="사진 크게 보기" hidden>
+  <button class="lb-btn lb-close" id="lbClose" type="button" aria-label="닫기"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button>
+  <button class="lb-btn lb-prev" id="lbPrev" type="button" aria-label="이전 사진"><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg></button>
+  <figure class="lb-figure">
+    <img id="lbImg" alt="">
+    <figcaption id="lbCap"></figcaption>
+  </figure>
+  <button class="lb-btn lb-next" id="lbNext" type="button" aria-label="다음 사진"><svg class="ic" aria-hidden="true"><use href="#i-right"/></svg></button>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="vendor/exifreader/exif-reader.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/util.js"></script>
+<script src="js/exif.js"></script>
+<script src="js/store.js"></script>
+<script src="js/maps.js"></script>
+<script src="js/geocode.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
