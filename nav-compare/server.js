@@ -185,9 +185,15 @@ const server = http.createServer(async (req, res) => {
       const s = { x: Number(u.searchParams.get('sx')), y: Number(u.searchParams.get('sy')) };
       const e = { x: Number(u.searchParams.get('ex')), y: Number(u.searchParams.get('ey')) };
       if (![s.x, s.y, e.x, e.y].every(Number.isFinite)) return sendJson(res, { error: '좌표가 올바르지 않습니다' }, 400);
+      // 키가 하나도 없을 때만 데모(가상) 경로를 보여줍니다.
+      // 일부만 있으면 가짜 데이터를 실제 결과와 섞지 않고, 키 없는 곳은 비교에서 뺍니다.
+      const anyReal = has.tmap || has.naver || has.kakao;
       const results = await Promise.all(Object.keys(ROUTERS).map(async p => {
         const t0 = Date.now();
-        if (!has[p]) return { provider: p, ok: true, demo: true, ...demoRoute(p, s, e) };
+        if (!has[p]) {
+          if (!anyReal) return { provider: p, ok: true, demo: true, ...demoRoute(p, s, e) };
+          return { provider: p, ok: false, skipped: true, error: 'API 키 미등록' };
+        }
         try {
           return { provider: p, ok: true, demo: false, ...(await ROUTERS[p](s, e)), ms: Date.now() - t0 };
         } catch (err) {
@@ -204,7 +210,10 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`네비 비교 앱 실행 중 → http://localhost:${PORT}`);
-  for (const [p, ok] of Object.entries(has)) console.log(`  ${p.padEnd(6)} ${ok ? '실제 API' : '데모 모드 (키 없음)'}`);
+  const anyKey = Object.values(has).some(Boolean);
+  for (const [p, ok] of Object.entries(has)) {
+    console.log(`  ${p.padEnd(6)} ${ok ? '실제 API' : anyKey ? '키 없음 → 비교에서 제외' : '키 없음 → 데모(가상) 경로'}`);
+  }
 });
 
 // ───────────────────────── 유틸 ─────────────────────────
@@ -213,11 +222,23 @@ async function fetchJson(url, opts = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10000);
   try {
-    const r = await fetch(url, { ...opts, signal: ctrl.signal });
+    let r;
+    try {
+      r = await fetch(url, { ...opts, signal: ctrl.signal });
+    } catch (err) {
+      if (err.name === 'AbortError') throw new Error('응답 시간 초과 (10초)');
+      throw new Error(`서버에 연결하지 못했습니다 (${new URL(url).host}). 인터넷 연결을 확인하세요.`);
+    }
     const text = await r.text();
-    let data;
-    try { data = JSON.parse(text); } catch { throw new Error(`HTTP ${r.status}: ${text.slice(0, 200)}`); }
-    if (!r.ok) throw new Error(`HTTP ${r.status}: ${data.message || data.msg || (data.error && (data.error.message || data.error.msg)) || text.slice(0, 200)}`);
+    let data = null;
+    try { data = JSON.parse(text); } catch { /* JSON이 아닌 응답 */ }
+    if (!r.ok || !data) {
+      const detail = (data && (data.message || data.msg || (data.error && (data.error.message || data.error.msg)) || (data.errorMessage))) || text.slice(0, 200);
+      const hint = r.status === 401 || r.status === 403 ? '키가 틀렸거나, 이 API 사용 권한이 꺼져 있습니다'
+        : r.status === 429 ? '사용량 한도를 넘었습니다'
+        : '요청이 실패했습니다';
+      throw new Error(`${hint} (HTTP ${r.status}: ${detail})`);
+    }
     return data;
   } finally {
     clearTimeout(timer);

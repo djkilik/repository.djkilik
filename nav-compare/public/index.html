@@ -52,6 +52,8 @@
   .stats span b { color: var(--text); font-weight: 600; }
   .card .open { margin-top: 10px; display: inline-block; text-decoration: none; }
   .err { color: #dc2626; font-size: 14px; margin-top: 6px; }
+  .skip { color: var(--sub); font-size: 14px; margin-top: 6px; }
+  .card.skipped { opacity: .65; }
   footer { font-size: 12px; color: var(--sub); margin: 24px 2px; line-height: 1.6; }
 </style>
 </head>
@@ -116,11 +118,14 @@ if (window.L) {
 // 데모 모드 안내
 fetch('/api/config').then(r => r.json()).then(({ providers }) => {
   const off = Object.entries(providers).filter(([, ok]) => !ok).map(([p]) => P[p].label);
-  if (off.length) {
+  if (off.length === 3) {
     $('demoNote').hidden = false;
     $('demoNote').textContent =
-      `⚠️ ${off.join(', ')} API 키가 없어 해당 결과는 가상의 데모 데이터입니다. ` +
-      `README의 안내대로 .env 파일에 키를 넣으면 실제 경로가 표시됩니다.`;
+      '⚠️ API 키가 아직 없어 모든 결과가 가상의 데모 데이터입니다. ' +
+      'README의 안내대로 .env 파일에 키를 넣으면 실제 경로가 표시됩니다.';
+  } else if (off.length) {
+    $('demoNote').hidden = false;
+    $('demoNote').textContent = `🔑 API 키 미등록: ${off.join(', ')} (비교에서 제외)`;
   }
 });
 
@@ -156,7 +161,17 @@ function bindSearch(inputId, suggId, key) {
     if (!q) { box.hidden = true; return; }
     timer = setTimeout(async () => {
       const near = state.me ? `&x=${state.me.x}&y=${state.me.y}` : '';
-      const { places } = await fetch(`/api/search?q=${encodeURIComponent(q)}${near}`).then(r => r.json());
+      let places;
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}${near}`).then(r => r.json());
+        if (res.error) throw new Error(res.error);
+        places = res.places || [];
+      } catch (err) {
+        box.innerHTML = '<div><small></small></div>';
+        box.querySelector('small').textContent = '장소 검색 오류: ' + err.message;
+        box.hidden = false;
+        return;
+      }
       box.innerHTML = '';
       if (!places.length) { box.innerHTML = '<div><small>검색 결과가 없습니다</small></div>'; box.hidden = false; return; }
       for (const p of places) {
@@ -187,7 +202,7 @@ async function compare() {
   $('summary').textContent = ''; $('cards').innerHTML = '';
   try {
     const { results, error } = await fetch(`/api/routes?sx=${s.x}&sy=${s.y}&ex=${e.x}&ey=${e.y}`).then(r => r.json());
-    if (error) throw new Error(error);
+    if (error || !results) throw new Error(error || '서버 응답 오류');
     render(results, s, e);
   } catch (err) {
     $('summary').textContent = '오류: ' + err.message;
@@ -206,12 +221,16 @@ function render(results, s, e) {
   if (window.L) drawMap(ok, minT, s, e);
 
   // 요약
-  if (ok.length) {
+  if (ok.length === 0) {
+    $('summary').textContent = '경로를 가져오지 못했습니다. 아래 카드의 오류 내용을 확인하세요.';
+  } else if (ok.length === 1) {
+    $('summary').innerHTML = `<b>${P[ok[0].provider].label}</b> 결과만 있어 비교할 수 없습니다.<br>API 키를 2개 이상 등록하세요.`;
+  } else {
     const fastest = ok.find(r => r.durationSec === minT);
     const slowest = ok.reduce((a, b) => (a.durationSec > b.durationSec ? a : b));
     const gap = slowest.durationSec - minT;
     $('summary').innerHTML = gap < 60
-      ? `세 네비의 예상 시간이 <b>거의 같습니다</b> (1분 이내 차이).`
+      ? `${ok.length}개 네비의 예상 시간이 <b>거의 같습니다</b> (1분 이내 차이).`
       : `<b>${P[fastest.provider].label}</b> 경로가 가장 빠릅니다.<br>가장 느린 경로(${P[slowest.provider].label})보다 <b>${fmtTime(gap)}</b> 빨라요.`;
   }
 
@@ -222,7 +241,11 @@ function render(results, s, e) {
     const card = document.createElement('div');
     card.className = 'card' + (r.ok && r.durationSec === minT ? ' best' : '');
     card.style.setProperty('--c', meta.color);
-    if (!r.ok) {
+    if (r.skipped) {
+      card.classList.add('skipped');
+      card.innerHTML = `<div class="card-head"><span class="name">${meta.label}</span></div>
+        <div class="skip">🔑 API 키가 없어 비교에서 제외했어요</div>`;
+    } else if (!r.ok) {
       card.innerHTML = `<div class="card-head"><span class="name">${meta.label}</span></div><div class="err"></div>`;
       card.querySelector('.err').textContent = '경로를 가져오지 못했습니다: ' + r.error;
     } else {
