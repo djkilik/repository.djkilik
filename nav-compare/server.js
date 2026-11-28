@@ -2,7 +2,7 @@
 // 외부 의존성 없이 Node.js 18+ 만으로 실행됩니다.  →  node server.js
 //
 // API 키는 브라우저에 노출되지 않도록 서버에서만 사용합니다.
-// 키가 없는 서비스는 자동으로 "데모 모드"(가상 경로)로 동작합니다.
+// 키가 하나도 없으면 "데모 모드"(가상 경로), 일부만 있으면 키 없는 곳은 비교에서 뺍니다.
 
 const http = require('http');
 const fs = require('fs');
@@ -17,8 +17,8 @@ const KEYS = {
   naverSecret: process.env.NAVER_CLIENT_SECRET || '',
   kakao: process.env.KAKAO_REST_API_KEY || '',
 };
-// 네이버 클라우드 Maps 신규 도메인. 구 상품을 쓰는 경우 .env 에서
-// https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving 으로 바꾸세요.
+// 네이버 클라우드 새 Maps 상품의 Directions 5 주소.
+// (옛 AI NAVER API 주소 naveropenapi.apigw.ntruss.com 은 2026-11-24에 종료)
 const NAVER_URL = process.env.NAVER_DIRECTIONS_URL || 'https://maps.apigw.ntruss.com/map-direction/v1/driving';
 
 const has = {

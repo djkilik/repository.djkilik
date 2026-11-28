@@ -37,7 +37,7 @@ node server.js           # → http://localhost:3000
 |---|---|---|
 | TMAP | 앱 키 1개 | 무료 (경로 하루 1,000건) |
 | 카카오 | REST API 키 1개 | 비상업 개인용은 무료 쿼터 안에서 사용 |
-| 네이버 | Client ID + Client Secret | 건당 5원 (결제수단 등록 필요) |
+| 네이버 | Client ID + Client Secret | 무료 (경로 월 60,000건), 넘으면 건당 5원 |
 
 ### 1) TMAP → `TMAP_APP_KEY`
 
@@ -70,18 +70,23 @@ node server.js           # → http://localhost:3000
 
 ### 3) 네이버 → `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`
 
-1. [네이버 클라우드 플랫폼](https://www.ncloud.com) 회원가입 + **결제수단 등록**
+1. [네이버 클라우드 플랫폼](https://www.ncloud.com) 회원가입 + 결제수단 등록
 2. 콘솔 → Services → Application Services → **Maps** → 이용 신청
 3. Application 등록 → API 목록에서 **Directions 5 체크**
    (체크 안 하면 429 오류)
 4. 인증 정보의 **Client ID / Client Secret**을 `.env`에 입력
 
-- 요금: Directions 5는 건당 5원 (VAT 별도).
-- 2025-07-01부터 지도 API 무료 이용량이 끝났다는 공지가 있습니다.
-  (같은 공지 안의 표와 엇갈리므로 **과금된다고 보는 게 안전**)
+- 요금: Directions 5는 **월 60,000건까지 무료**, 넘으면 건당 5원 (VAT 별도).
+  무료 이용량은 대표 계정 1개(Maps를 처음 쓴 계정)에만 적용됩니다.
+  ([요금표](https://www.ncloud.com/charge/region/jp),
+  [Maps 요금 탭](https://www.ncloud.com/product/applicationService/maps#pricing))
+- 하루 2,000번 넘게 비교하지 않으면 개인용으로는 사실상 무료입니다.
+- 반드시 **새 Maps 상품**에서 키를 받으세요.
+  옛 "AI NAVER API" 지도 API는 2026-11-24 18시에 종료됐습니다.
+  ([종료 공지](https://www.ncloud.com/support/notice/all/2200))
+  "2025-07-01부터 무료 이용량 종료" 공지도 이 옛 상품 이야기입니다.
   ([공지](https://www.gov-ncloud.com/support/notice/all/528))
-- 예: 하루 10번 비교 × 30일 = 300건 → 월 약 1,650원 (VAT 포함)
-- 콘솔에서 **이용 한도 설정**을 켜 두면 예상 밖 과금을 막을 수 있습니다.
+- 무료 한도를 넘으면 청구되므로 콘솔에서 **이용 한도 설정**을 켜 두세요.
   ([가이드](https://guide.ncloud-docs.com/docs/maps-procedure))
 
 장소 검색은 카카오 키가 있으면 카카오 로컬 API, 없으면 TMAP POI 검색을 씁니다.
